@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "347456717704",
+    "project_id": "masrofy-app",
+    "storage_bucket": "masrofy-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:347456717704:android:c9d8c78dfcf5297efdb03d",
+        "android_client_info": {
+          "package_name": "com.hany.smartplanner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIoTHvdA8FMJZBNT3wVy1QmnRwaVZsLQg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

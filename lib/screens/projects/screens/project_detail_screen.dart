@@ -1,0 +1,549 @@
+import 'package:flutter/cupertino.dart';
+import 'package:masrofy/core/utils/no_animation_route.dart';
+
+import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../providers/project_provider.dart';
+import '../../../models/project.dart';
+
+import 'add_task_screen.dart';
+import '../widgets/task_card.dart';
+import '../../../core/services/pdf_service.dart';
+import '../../../providers/settings_provider.dart';
+import '../../../models/project_task.dart';
+import '../widgets/project_dialog.dart';
+import '../widgets/voice_task_sheet.dart';
+
+class ProjectDetailScreen extends StatefulWidget {
+  final Project project;
+
+  const ProjectDetailScreen({super.key, required this.project});
+
+  @override
+  State<ProjectDetailScreen> createState() => _ProjectDetailScreenState();
+}
+
+class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
+  bool _isSelectionMode = false;
+  final Set<String> _selectedTaskIds = {};
+  String _selectedType = 'all';
+  String _selectedPaymentStatus = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ProjectProvider>(
+        context,
+        listen: false,
+      ).loadTasks(widget.project.id);
+    });
+  }
+
+  Future<void> _generatePdf(List<ProjectTask> tasks) async {
+    final pdfService = PdfService();
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    await pdfService.printProjectInvoice(
+      widget.project,
+      tasks,
+      context.locale,
+      currency: settingsProvider.currency,
+      showHourCost: settingsProvider.showHourCostInPrint,
+      showTaskType: settingsProvider.showTaskTypeInPrint,
+      showTaskTime: settingsProvider.showTaskTimeInPrint,
+      showSubtasks: settingsProvider.showSubtasksInPrint,
+    );
+  }
+
+  Future<void> _sharePdf(List<ProjectTask> tasks) async {
+    final pdfService = PdfService();
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    await pdfService.shareProjectInvoice(
+      widget.project,
+      tasks,
+      context.locale,
+      currency: settingsProvider.currency,
+      showHourCost: settingsProvider.showHourCostInPrint,
+      showTaskType: settingsProvider.showTaskTypeInPrint,
+      showTaskTime: settingsProvider.showTaskTimeInPrint,
+      showSubtasks: settingsProvider.showSubtasksInPrint,
+    );
+  }
+
+  void _confirmDeleteProject(BuildContext context) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text('deleteProject'.tr()),
+        content: Text('deleteProjectConfirm'.tr()),
+        actions: [
+          CupertinoDialogAction(
+            child: Text('cancel'.tr()),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: Text('delete'.tr()),
+            onPressed: () {
+              Provider.of<ProjectProvider>(
+                context,
+                listen: false,
+              ).deleteProject(widget.project.id);
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to previous screen
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemBackground,
+        border: Border(
+          bottom: BorderSide(
+            color: CupertinoColors.separator.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                _buildFilterChip(
+                  label: 'all'.tr(),
+                  isSelected: _selectedType == 'all',
+                  onTap: () => setState(() => _selectedType = 'all'),
+                ),
+                _buildFilterChip(
+                  label: 'newFeature'.tr(),
+                  isSelected: _selectedType == 'newFeature',
+                  onTap: () => setState(() => _selectedType = 'newFeature'),
+                ),
+                _buildFilterChip(
+                  label: 'bug'.tr(),
+                  isSelected: _selectedType == 'bug',
+                  onTap: () => setState(() => _selectedType = 'bug'),
+                ),
+                _buildFilterChip(
+                  label: 'enhancement'.tr(),
+                  isSelected: _selectedType == 'enhancement',
+                  onTap: () => setState(() => _selectedType = 'enhancement'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                _buildFilterChip(
+                  label: 'all'.tr(),
+                  isSelected: _selectedPaymentStatus == 'all',
+                  onTap: () => setState(() => _selectedPaymentStatus = 'all'),
+                ),
+                _buildFilterChip(
+                  label: 'paid'.tr(),
+                  isSelected: _selectedPaymentStatus == 'paid',
+                  onTap: () => setState(() => _selectedPaymentStatus = 'paid'),
+                ),
+                _buildFilterChip(
+                  label: 'unpaid'.tr(),
+                  isSelected: _selectedPaymentStatus == 'unpaid',
+                  onTap: () =>
+                      setState(() => _selectedPaymentStatus = 'unpaid'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? CupertinoColors.activeBlue
+              : CupertinoColors.systemGrey6,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? CupertinoColors.white : CupertinoColors.label,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ProjectProvider>(
+      builder: (context, provider, _) {
+        final project = provider.projects.firstWhere(
+          (p) => p.id == widget.project.id,
+          orElse: () => widget.project,
+        );
+        return CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(
+            middle: Text(project.name),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_isSelectionMode)
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(FontAwesomeIcons.penToSquare, size: 20),
+                    onPressed: () => ProjectDialog.show(context, project: project),
+                  ),
+                if (_isSelectionMode) ...[
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(
+                      FontAwesomeIcons.trashCan,
+                      color: CupertinoColors.destructiveRed,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      if (_selectedTaskIds.isEmpty) return;
+                      showCupertinoDialog(
+                        context: context,
+                        builder: (context) => CupertinoAlertDialog(
+                          title: Text('deleteTasks'.tr()),
+                          content: Text('deleteTasksConfirm'.tr()),
+                          actions: [
+                            CupertinoDialogAction(
+                              child: Text('cancel'.tr()),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            CupertinoDialogAction(
+                              isDestructiveAction: true,
+                              child: Text('delete'.tr()),
+                              onPressed: () {
+                                final provider = Provider.of<ProjectProvider>(
+                                  context,
+                                  listen: false,
+                                );
+                                for (var id in _selectedTaskIds) {
+                                  provider.deleteTask(id, widget.project.id);
+                                }
+                                setState(() {
+                                  _isSelectionMode = false;
+                                  _selectedTaskIds.clear();
+                                });
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(
+                      FontAwesomeIcons.whatsapp,
+                      size: 20,
+                      color: CupertinoColors.activeGreen,
+                    ),
+                    onPressed: () {
+                      if (_selectedTaskIds.isEmpty) return;
+                      final provider = Provider.of<ProjectProvider>(
+                        context,
+                        listen: false,
+                      );
+                      final allTasks = provider.getTasks(widget.project.id);
+                      final selectedTasks = allTasks
+                          .where((t) => _selectedTaskIds.contains(t.id))
+                          .toList();
+                      if (selectedTasks.isNotEmpty) {
+                        _sharePdf(selectedTasks);
+                        setState(() {
+                          _isSelectionMode = false;
+                          _selectedTaskIds.clear();
+                        });
+                      }
+                    },
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(FontAwesomeIcons.print, size: 20),
+                    onPressed: () {
+                      if (_selectedTaskIds.isEmpty) return;
+                      final provider = Provider.of<ProjectProvider>(
+                        context,
+                        listen: false,
+                      );
+                      final allTasks = provider.getTasks(widget.project.id);
+                      final selectedTasks = allTasks
+                          .where((t) => _selectedTaskIds.contains(t.id))
+                          .toList();
+                      if (selectedTasks.isNotEmpty) {
+                        _generatePdf(selectedTasks);
+                        setState(() {
+                          _isSelectionMode = false;
+                          _selectedTaskIds.clear();
+                        });
+                      }
+                    },
+                  ),
+                ],
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  child: Text(_isSelectionMode ? 'cancel'.tr() : 'select'.tr()),
+                  onPressed: () {
+                    setState(() {
+                      _isSelectionMode = !_isSelectionMode;
+                      _selectedTaskIds.clear();
+                    });
+                  },
+                ),
+                if (!_isSelectionMode)
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(FontAwesomeIcons.trashCan, size: 20),
+                    onPressed: () => _confirmDeleteProject(context),
+                  ),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    _buildFilterBar(),
+                    Expanded(
+                      child: Consumer<ProjectProvider>(
+                        builder: (_, provider, child) {
+                          var tasks = provider.getTasks(widget.project.id);
+
+                          // Apply Filters
+                          if (_selectedType != 'all') {
+                            tasks = tasks
+                                .where((t) => t.type == _selectedType)
+                                .toList();
+                          }
+
+                          if (_selectedPaymentStatus != 'all') {
+                            final isPaidFilter = _selectedPaymentStatus == 'paid';
+                            tasks = tasks
+                                .where((t) => t.isPaid == isPaidFilter)
+                                .toList();
+                          } else {
+                            // Default view: show everything NOT archived (i.e. Unpaid)
+                            tasks = tasks.where((t) => !t.isArchived).toList();
+                          }
+
+                          if (tasks.isEmpty) {
+                            return Center(child: Text('noData'.tr()));
+                          }
+
+                          return ListView.builder(
+                            itemCount: tasks.length,
+                            itemBuilder: (_, index) {
+                              final task = tasks[index];
+                              return TaskCard(
+                                task: task,
+                                isSelectionMode: _isSelectionMode,
+                                selectedTaskIds: _selectedTaskIds,
+                                onTap: () {
+                                  if (_isSelectionMode) {
+                                    setState(() {
+                                      if (_selectedTaskIds.contains(task.id)) {
+                                        _selectedTaskIds.remove(task.id);
+                                      } else {
+                                        _selectedTaskIds.add(task.id);
+                                      }
+                                    });
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      NoAnimationPageRoute(
+                                        builder: (_) => AddTaskScreen(
+                                          projectId: widget.project.id,
+                                          task: task,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CupertinoButton.filled(
+                              padding: EdgeInsets.zero,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(CupertinoIcons.add, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text('addTask'.tr()),
+                                ],
+                              ),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  NoAnimationPageRoute(
+                                    builder: (_) =>
+                                        AddTaskScreen(projectId: widget.project.id),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () {
+                              showCupertinoModalPopup(
+                                context: context,
+                                builder: (_) => VoiceTaskSheet(
+                                  projectId: widget.project.id,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFEC4899).withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(CupertinoIcons.mic_fill, color: CupertinoColors.white, size: 18),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'voiceCreate'.tr(),
+                                    style: const TextStyle(
+                                      color: CupertinoColors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // Floating Share/Print buttons for all tasks
+                if (!_isSelectionMode)
+                  Consumer<ProjectProvider>(
+                    builder: (context, provider, _) {
+                      final tasks = provider.getTasks(widget.project.id);
+                      if (tasks.isEmpty) return const SizedBox.shrink();
+
+                      return Positioned(
+                        bottom: 80,
+                        right: 16,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _sharePdf(tasks),
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: const BoxDecoration(
+                                  color: CupertinoColors.activeGreen,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: FaIcon(
+                                    FontAwesomeIcons.whatsapp,
+                                    color: CupertinoColors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _generatePdf(tasks),
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: CupertinoColors.systemGrey.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: FaIcon(
+                                    FontAwesomeIcons.print,
+                                    color: CupertinoColors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

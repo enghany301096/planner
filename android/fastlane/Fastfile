@@ -1,0 +1,28 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build Flutter AppBundle (AAB) for release"
+  lane :build_aab_release do
+    UI.message("Cleaning Flutter project...")
+    sh "flutter clean"
+
+    UI.message("Building Flutter AAB for release...")
+    sh "flutter build appbundle"
+
+    UI.success("AAB built successfully at: build/app/outputs/bundle/release/app-release.aab 🎉")
+  end
+
+  desc "Deploy AAB to Google Play Internal Testing Track"
+  lane :deploy_internal do
+    build_aab_release
+
+    UI.message("Uploading to Google Play Internal Testing Track ✨")
+    upload_to_play_store(
+      track: "internal",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      json_key: "../android/app/google-services.json"
+      # json_key: "play-account.json"
+    )
+    UI.success("Deployment to Google Play Internal Testing completed! 🚀")
+  end
+end
