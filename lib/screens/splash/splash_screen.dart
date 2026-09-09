@@ -2,9 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:masrofy/core/utils/fixed_assets.dart';
-import 'package:masrofy/core/utils/no_animation_route.dart';
-import 'package:masrofy/screens/settings/auth_screen.dart';
+import 'package:planner/core/utils/fixed_assets.dart';
+import 'package:planner/core/utils/no_animation_route.dart';
+import 'package:planner/providers/locale_provider.dart';
+import 'package:planner/providers/settings_provider.dart';
+import 'package:planner/screens/settings/auth_screen.dart';
+import 'package:provider/provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,12 +25,25 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _navigateToNext() async {
     // Wait for animations to play a bit
-    await Future.delayed(const Duration(seconds: 5));
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        NoAnimationPageRoute(builder: (_) => const AuthScreen()),
-      );
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
+    final currentLocale = context.locale;
+    final navigator = Navigator.of(context);
+    final started = DateTime.now();
+    while (!settings.areSettingsLoaded &&
+        DateTime.now().difference(started) < const Duration(seconds: 3)) {
+      await Future.delayed(const Duration(milliseconds: 50));
     }
+    final nextLocale = localeProvider.locale;
+    if (mounted && nextLocale != null && nextLocale != currentLocale) {
+      await context.setLocale(nextLocale);
+    }
+    if (!mounted) return;
+    navigator.pushReplacement(
+      NoAnimationPageRoute(builder: (_) => const AuthScreen()),
+    );
   }
 
   @override

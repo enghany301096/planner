@@ -3,13 +3,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/utils/app_layout.dart';
 import '../../../models/expense.dart';
 import '../../../models/expense_category.dart';
 import '../../../providers/expenses_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/wallet_provider.dart';
 import '../../../models/payment_method.dart';
-import 'package:masrofy/screens/expenses/expense_categories_screen.dart';
+import 'package:planner/screens/expenses/expense_categories_screen.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   final Expense? expense; // null = create, non-null = edit
@@ -45,9 +46,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
-    final settings =
-        Provider.of<SettingsProvider>(context, listen: false);
-    _currency = settings.currency;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    _currency = settings.expensesCurrency;
 
     if (widget.expense != null) {
       final e = widget.expense!;
@@ -60,8 +60,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _currency = e.currency;
     } else if (widget.prefilledTaskName != null) {
       _titleController.text = widget.prefilledTaskName!;
-      _amountController.text =
-          widget.prefilledAmount?.toStringAsFixed(2) ?? '';
+      _amountController.text = widget.prefilledAmount?.toStringAsFixed(2) ?? '';
     }
   }
 
@@ -79,12 +78,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _titleError = _titleController.text.trim().isEmpty
           ? 'pleaseEnterName'.tr()
           : null;
-      _amountError = (double.tryParse(_amountController.text) == null ||
+      _amountError =
+          (double.tryParse(_amountController.text) == null ||
               double.parse(_amountController.text) <= 0)
           ? 'invalidInput'.tr()
           : null;
-      _categoryError =
-          _selectedCategoryId == null ? 'selectCategory'.tr() : null;
+      _categoryError = _selectedCategoryId == null
+          ? 'selectCategory'.tr()
+          : null;
     });
     if (_titleError != null || _amountError != null || _categoryError != null) {
       valid = false;
@@ -96,8 +97,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (!_validate()) return;
     setState(() => _isSaving = true);
 
-    final provider =
-        Provider.of<ExpensesProvider>(context, listen: false);
+    final provider = Provider.of<ExpensesProvider>(context, listen: false);
     final expense = Expense(
       id: widget.expense?.id ?? const Uuid().v4(),
       title: _titleController.text.trim(),
@@ -124,8 +124,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.expense != null;
-    final isFromTask = widget.prefilledTaskId != null ||
-        (widget.expense?.taskId != null);
+    final isFromTask =
+        widget.prefilledTaskId != null || (widget.expense?.taskId != null);
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -142,121 +142,128 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         ),
       ),
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (isFromTask)
-              _buildTaskBadge(),
-            const SizedBox(height: 8),
-            _buildField(
-              label: 'titlePlaceholder'.tr(),
-              child: CupertinoTextField(
-                controller: _titleController,
-                placeholder: 'titlePlaceholder'.tr(),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _titleError != null
-                        ? CupertinoColors.destructiveRed
-                        : CupertinoColors.separator,
+        child: AppLayout.constrain(
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (isFromTask) _buildTaskBadge(),
+              const SizedBox(height: 8),
+              _buildField(
+                label: 'titlePlaceholder'.tr(),
+                child: CupertinoTextField(
+                  controller: _titleController,
+                  placeholder: 'titlePlaceholder'.tr(),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: _titleError != null
+                          ? CupertinoColors.destructiveRed
+                          : CupertinoColors.separator,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  borderRadius: BorderRadius.circular(10),
                 ),
+                error: _titleError,
               ),
-              error: _titleError,
-            ),
-            _buildField(
-              label: 'amountPlaceholder'.tr(),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CupertinoTextField(
-                      controller: _amountController,
-                      placeholder: '0.00',
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: _amountError != null
-                              ? CupertinoColors.destructiveRed
-                              : CupertinoColors.separator,
+              _buildField(
+                label: 'amountPlaceholder'.tr(),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: CupertinoTextField(
+                        controller: _amountController,
+                        placeholder: '0.00',
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        borderRadius: BorderRadius.circular(10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: _amountError != null
+                                ? CupertinoColors.destructiveRed
+                                : CupertinoColors.separator,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Consumer<SettingsProvider>(
-                    builder: (_, settings, __) => CupertinoButton(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      color:
-                          CupertinoColors.systemGrey5.resolveFrom(context),
+                    const SizedBox(width: 8),
+                    Consumer<SettingsProvider>(
+                      builder: (_, settings, __) => CupertinoButton(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        color: CupertinoColors.systemGrey5.resolveFrom(context),
+                        borderRadius: BorderRadius.circular(10),
+                        onPressed: _pickCurrency,
+                        child: Text(
+                          _currency,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                error: _amountError,
+              ),
+              _buildField(
+                label: 'dateLabel'.tr(),
+                child: GestureDetector(
+                  onTap: _pickDate,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: CupertinoColors.separator),
                       borderRadius: BorderRadius.circular(10),
-                      onPressed: _pickCurrency,
-                      child: Text(_currency,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(DateFormat.yMMMd().format(_date)),
+                        const Icon(
+                          CupertinoIcons.calendar,
+                          color: CupertinoColors.systemGrey,
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-              error: _amountError,
-            ),
-            _buildField(
-              label: 'dateLabel'.tr(),
-              child: GestureDetector(
-                onTap: _pickDate,
-                child: Container(
+              _buildField(
+                label: 'selectCategory'.tr(),
+                child: Consumer<ExpensesProvider>(
+                  builder: (_, expProvider, __) {
+                    return _buildCategoryPicker(expProvider.categories);
+                  },
+                ),
+                error: _categoryError,
+              ),
+              _buildField(
+                label: 'selectPaymentMethod'.tr(),
+                child: Consumer<WalletProvider>(
+                  builder: (_, walletProvider, __) {
+                    return _buildPaymentMethodPicker(
+                      walletProvider.paymentMethods,
+                    );
+                  },
+                ),
+              ),
+              _buildField(
+                label: 'noteOptional'.tr(),
+                child: CupertinoTextField(
+                  controller: _noteController,
+                  placeholder: 'noteOptional'.tr(),
+                  maxLines: 3,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     border: Border.all(color: CupertinoColors.separator),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(DateFormat.yMMMd().format(_date)),
-                      const Icon(CupertinoIcons.calendar,
-                          color: CupertinoColors.systemGrey),
-                    ],
-                  ),
                 ),
               ),
-            ),
-            _buildField(
-              label: 'selectCategory'.tr(),
-              child: Consumer<ExpensesProvider>(
-                builder: (_, expProvider, __) {
-                  return _buildCategoryPicker(expProvider.categories);
-                },
-              ),
-              error: _categoryError,
-            ),
-            _buildField(
-              label: 'selectPaymentMethod'.tr(),
-              child: Consumer<WalletProvider>(
-                builder: (_, walletProvider, __) {
-                  return _buildPaymentMethodPicker(
-                      walletProvider.paymentMethods);
-                },
-              ),
-            ),
-            _buildField(
-              label: 'noteOptional'.tr(),
-              child: CupertinoTextField(
-                controller: _noteController,
-                placeholder: 'noteOptional'.tr(),
-                maxLines: 3,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: CupertinoColors.separator),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -269,18 +276,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         color: CupertinoColors.activeBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-            color: CupertinoColors.activeBlue.withValues(alpha: 0.3)),
+          color: CupertinoColors.activeBlue.withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(CupertinoIcons.link,
-              size: 14, color: CupertinoColors.activeBlue),
+          const Icon(
+            CupertinoIcons.link,
+            size: 14,
+            color: CupertinoColors.activeBlue,
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'autoExpenseFromTask'.tr(),
               style: const TextStyle(
-                  fontSize: 12, color: CupertinoColors.activeBlue),
+                fontSize: 12,
+                color: CupertinoColors.activeBlue,
+              ),
             ),
           ),
         ],
@@ -314,7 +327,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               child: Text(
                 error,
                 style: const TextStyle(
-                    fontSize: 11, color: CupertinoColors.destructiveRed),
+                  fontSize: 11,
+                  color: CupertinoColors.destructiveRed,
+                ),
               ),
             ),
         ],
@@ -335,12 +350,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             _categoryError = null;
           }),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? catColor
-                  : catColor.withValues(alpha: 0.1),
+              color: isSelected ? catColor : catColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected ? catColor : catColor.withValues(alpha: 0.3),
@@ -360,8 +372,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color:
-                        isSelected ? CupertinoColors.white : catColor,
+                    color: isSelected ? CupertinoColors.white : catColor,
                   ),
                 ),
               ],
@@ -380,17 +391,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ),
       child: CupertinoListTile(
         leading: Icon(
-          _selectedPaymentMethodId != null
-              ? Icons.credit_card
-              : Icons.payment,
+          _selectedPaymentMethodId != null ? Icons.credit_card : Icons.payment,
           color: CupertinoColors.systemGrey,
         ),
         title: Text(
           _selectedPaymentMethodId != null
-              ? (paymentMethods.firstWhere(
-                    (m) => m.id == _selectedPaymentMethodId,
-                    orElse: () => paymentMethods.first,
-                  ).name)
+              ? (paymentMethods
+                    .firstWhere(
+                      (m) => m.id == _selectedPaymentMethodId,
+                      orElse: () => paymentMethods.first,
+                    )
+                    .name)
               : 'selectPaymentMethod'.tr(),
           style: TextStyle(
             color: _selectedPaymentMethodId != null
@@ -436,7 +447,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   void _pickCurrency() {
-    final currencies = ['L.E', 'USD', 'SAR'];
+    final currencies = ['EGP', 'USD', 'SAR'];
     showCupertinoModalPopup(
       context: context,
       builder: (_) => CupertinoActionSheet(

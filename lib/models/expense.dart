@@ -18,7 +18,7 @@ class Expense {
     this.paymentMethodId,
     this.note,
     this.taskId,
-    this.currency = 'L.E',
+    this.currency = 'EGP',
   });
 
   Map<String, dynamic> toMap() {
@@ -45,7 +45,7 @@ class Expense {
       paymentMethodId: map['paymentMethodId'],
       note: map['note'],
       taskId: map['taskId'],
-      currency: map['currency'] ?? 'L.E',
+      currency: map['currency'] ?? 'EGP',
     );
   }
 

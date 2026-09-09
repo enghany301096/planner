@@ -1,22 +1,69 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../models/project.dart';
+import '../models/project_member.dart';
 import '../models/project_task.dart';
 import '../core/services/database_helper.dart';
+import '../core/services/notification_service.dart';
 
 typedef TaskPaidCallback = Future<void> Function(ProjectTask task, bool isPaid);
 
 class ProjectProvider with ChangeNotifier {
   List<Project> _projects = [];
   final Map<String, List<ProjectTask>> _tasks = {}; // projectId -> tasks
+  final Map<String, List<ProjectMember>> _members = {}; // projectId -> members
 
   /// Optional callback fired when a task's isPaid status changes.
-  /// Wired to ExpensesProvider in HomeScreen after providers are available.
+  /// Wired to IncomeProvider in HomeScreen after providers are available.
   TaskPaidCallback? onTaskPaidChanged;
 
   List<Project> get projects => _projects;
 
   List<ProjectTask> getTasks(String projectId) {
     return _tasks[projectId] ?? [];
+  }
+
+  List<ProjectMember> getMembers(String projectId) {
+    return _members[projectId] ?? [];
+  }
+
+  List<ProjectTask> activeTasks(String projectId) {
+    return getTasks(projectId).where((t) => !t.isArchived).toList();
+  }
+
+  List<ProjectTask> archivedTasks({String? projectId}) {
+    final source = projectId == null
+        ? _tasks.values.expand((e) => e)
+        : getTasks(projectId);
+    return source.where((t) => t.isArchived).toList();
+  }
+
+  int archivableCount(String projectId) {
+    return getTasks(projectId).where((t) => t.canArchive).length;
+  }
+
+  Future<int> archiveTasks(String projectId, {Iterable<String>? ids}) async {
+    var eligible = getTasks(projectId).where((t) => t.canArchive);
+    if (ids != null) {
+      final idSet = ids.toSet();
+      eligible = eligible.where((t) => idSet.contains(t.id));
+    }
+    final list = eligible.toList();
+    for (final task in list) {
+      await updateTask(task.copyWith(isArchived: true));
+    }
+    return list.length;
+  }
+
+  Future<void> restoreArchivedTask(ProjectTask task) {
+    return updateTask(task.copyWith(isArchived: false));
+  }
+
+  List<ProjectMember> assigneesFor(ProjectTask task) {
+    final members = getMembers(task.projectId);
+    if (task.assigneeIds.isEmpty || members.isEmpty) return const [];
+    final idSet = task.assigneeIds.toSet();
+    return members.where((m) => idSet.contains(m.id)).toList();
   }
 
   int get totalTasksCount {
@@ -36,7 +83,6 @@ class ProjectProvider with ChangeNotifier {
   int get pendingTasksCount {
     return _tasks.values
         .expand((element) => element)
-        // Bug fix #4: pending = not yet started (toDo only), not all non-completed
         .where((t) => t.status == 'toDo' && !t.isArchived)
         .length;
   }
@@ -75,11 +121,12 @@ class ProjectProvider with ChangeNotifier {
       final allTasks = await DatabaseHelper.instance.getAllTasks();
       _tasks.clear();
       for (var task in allTasks) {
-        if (_tasks.containsKey(task.projectId)) {
-          _tasks[task.projectId]!.add(task);
-        } else {
-          _tasks[task.projectId] = [task];
-        }
+        _tasks.putIfAbsent(task.projectId, () => []).add(task);
+      }
+      final allMembers = await DatabaseHelper.instance.getAllProjectMembers();
+      _members.clear();
+      for (final member in allMembers) {
+        _members.putIfAbsent(member.projectId, () => []).add(member);
       }
     } catch (e) {
       debugPrint('ProjectProvider loadData error: $e');
@@ -90,6 +137,9 @@ class ProjectProvider with ChangeNotifier {
   Future<void> loadTasks(String projectId) async {
     try {
       _tasks[projectId] = await DatabaseHelper.instance.getTasks(projectId);
+      _members[projectId] = await DatabaseHelper.instance.getProjectMembers(
+        projectId,
+      );
     } catch (e) {
       debugPrint('ProjectProvider loadTasks error: $e');
     }
@@ -99,6 +149,7 @@ class ProjectProvider with ChangeNotifier {
   Future<void> addProject(Project project) async {
     await DatabaseHelper.instance.insertProject(project);
     _projects.add(project);
+    _members[project.id] = [];
     notifyListeners();
   }
 
@@ -115,23 +166,74 @@ class ProjectProvider with ChangeNotifier {
     await DatabaseHelper.instance.deleteProject(id);
     _projects.removeWhere((p) => p.id == id);
     _tasks.remove(id);
+    _members.remove(id);
     notifyListeners();
   }
 
-  Future<void> addTask(ProjectTask task) async {
-    await DatabaseHelper.instance.insertTask(task);
-    if (_tasks.containsKey(task.projectId)) {
-      _tasks[task.projectId]!.add(task);
-    } else {
-      _tasks[task.projectId] = [task];
+  Future<void> addMember(ProjectMember member) async {
+    await DatabaseHelper.instance.insertProjectMember(member);
+    _members.putIfAbsent(member.projectId, () => []).add(member);
+    notifyListeners();
+  }
+
+  Future<void> updateMember(ProjectMember member) async {
+    await DatabaseHelper.instance.updateProjectMember(member);
+    final list = _members[member.projectId];
+    if (list == null) return;
+    final index = list.indexWhere((m) => m.id == member.id);
+    if (index != -1) {
+      list[index] = member;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteMember(String memberId, String projectId) async {
+    await DatabaseHelper.instance.deleteProjectMember(memberId);
+    _members[projectId]?.removeWhere((m) => m.id == memberId);
+    final tasks = _tasks[projectId];
+    if (tasks != null) {
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].assigneeIds.contains(memberId)) {
+          tasks[i] = tasks[i].copyWith(
+            assigneeIds: tasks[i].assigneeIds
+                .where((id) => id != memberId)
+                .toList(),
+          );
+        }
+      }
     }
     notifyListeners();
   }
 
+  Future<void> setTaskAssignees(String taskId, List<String> memberIds) async {
+    await DatabaseHelper.instance.setTaskAssignees(taskId, memberIds);
+    for (final entry in _tasks.entries) {
+      final index = entry.value.indexWhere((t) => t.id == taskId);
+      if (index != -1) {
+        entry.value[index] = entry.value[index].copyWith(
+          assigneeIds: List<String>.from(memberIds),
+        );
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  Future<void> addTask(ProjectTask task) async {
+    await DatabaseHelper.instance.insertTask(task);
+    if (task.assigneeIds.isNotEmpty) {
+      await DatabaseHelper.instance.setTaskAssignees(task.id, task.assigneeIds);
+    }
+    _tasks.putIfAbsent(task.projectId, () => []).add(task);
+    await _syncTaskReminder(task);
+    notifyListeners();
+  }
+
   Future<void> updateTask(ProjectTask task) async {
-    // Detect payment status change to trigger expense auto-creation/removal
-    final existingTask = _tasks[task.projectId]
-        ?.firstWhere((t) => t.id == task.id, orElse: () => task);
+    final existingTask = _tasks[task.projectId]?.firstWhere(
+      (t) => t.id == task.id,
+      orElse: () => task,
+    );
     final paymentChanged =
         existingTask != null && existingTask.isPaid != task.isPaid;
 
@@ -143,6 +245,10 @@ class ProjectProvider with ChangeNotifier {
       );
     }
     await DatabaseHelper.instance.updateTask(taskToUpdate);
+    await DatabaseHelper.instance.setTaskAssignees(
+      taskToUpdate.id,
+      taskToUpdate.assigneeIds,
+    );
     if (_tasks.containsKey(taskToUpdate.projectId)) {
       final index = _tasks[taskToUpdate.projectId]!.indexWhere(
         (t) => t.id == taskToUpdate.id,
@@ -152,7 +258,7 @@ class ProjectProvider with ChangeNotifier {
         notifyListeners();
       }
     }
-    // Fire expense callback after state is updated
+    await _syncTaskReminder(taskToUpdate);
     if (paymentChanged && onTaskPaidChanged != null) {
       await onTaskPaidChanged!(taskToUpdate, taskToUpdate.isPaid);
     }
@@ -160,10 +266,24 @@ class ProjectProvider with ChangeNotifier {
 
   Future<void> deleteTask(String id, String projectId) async {
     await DatabaseHelper.instance.deleteTask(id);
+    await NotificationService().cancelTaskReminder(id);
     if (_tasks.containsKey(projectId)) {
       _tasks[projectId]!.removeWhere((t) => t.id == id);
       notifyListeners();
     }
+  }
+
+  Future<void> _syncTaskReminder(ProjectTask task) async {
+    if (task.endDate == null || task.isCompleted || task.status == 'done') {
+      await NotificationService().cancelTaskReminder(task.id);
+      return;
+    }
+    await NotificationService().scheduleTaskReminder(
+      taskId: task.id,
+      title: 'taskDueReminderTitle'.tr(),
+      body: 'taskDueReminderBody'.tr(namedArgs: {'name': task.name}),
+      dueDate: task.endDate!,
+    );
   }
 
   Future<void> toggleTaskTimer(String taskId, String projectId) async {
@@ -178,7 +298,6 @@ class ProjectProvider with ChangeNotifier {
     ProjectTask updatedTask;
 
     if (task.isTimerRunning) {
-      // Stop Timer
       final startTime = task.lastStartTime ?? now;
       final difference = now.difference(startTime).inSeconds;
       final newTimeSpent = task.timeSpentInSeconds + difference;
@@ -186,7 +305,6 @@ class ProjectProvider with ChangeNotifier {
       double newCost = task.cost;
       if (task.hourlyRate > 0) {
         newCost = (newTimeSpent / 3600.0) * task.hourlyRate;
-        // Round to 2 decimal places to avoid long floating point numbers
         newCost = double.parse(newCost.toStringAsFixed(2));
       }
 
@@ -198,7 +316,6 @@ class ProjectProvider with ChangeNotifier {
         timerEndAt: now,
       );
     } else {
-      // Start Timer
       updatedTask = task.copyWith(
         isTimerRunning: true,
         lastStartTime: now,

@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:masrofy/models/project_task.dart';
-import 'package:masrofy/providers/project_provider.dart';
-import 'package:masrofy/providers/wallet_provider.dart';
+import 'package:planner/models/project_task.dart';
+import 'package:planner/providers/project_provider.dart';
+import 'package:planner/providers/settings_provider.dart';
+import 'package:planner/providers/wallet_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -137,7 +138,10 @@ class _TaskCardState extends State<TaskCard> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${task.cost} ${task.currency.tr()}',
+                            context.watch<SettingsProvider>().formatMoney(
+                              task.cost,
+                              task.currency,
+                            ),
                             style: const TextStyle(
                               color: CupertinoColors.systemGreen,
                             ),
@@ -164,7 +168,9 @@ class _TaskCardState extends State<TaskCard> {
                         ),
                         decoration: BoxDecoration(
                           color: task.status == 'done'
-                              ? CupertinoColors.systemGreen.withValues(alpha: 0.1)
+                              ? CupertinoColors.systemGreen.withValues(
+                                  alpha: 0.1,
+                                )
                               : (task.status == 'inProgress'
                                     ? CupertinoColors.systemOrange.withValues(
                                         alpha: 0.1,
@@ -195,7 +201,9 @@ class _TaskCardState extends State<TaskCard> {
                         ),
                         decoration: BoxDecoration(
                           color: task.isTimerRunning
-                              ? CupertinoColors.activeBlue.withValues(alpha: 0.1)
+                              ? CupertinoColors.activeBlue.withValues(
+                                  alpha: 0.1,
+                                )
                               : CupertinoColors.systemGrey6,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
@@ -248,7 +256,9 @@ class _TaskCardState extends State<TaskCard> {
                                 ? CupertinoColors.destructiveRed.withValues(
                                     alpha: 0.1,
                                   )
-                                : CupertinoColors.activeBlue.withValues(alpha: 0.1),
+                                : CupertinoColors.activeBlue.withValues(
+                                    alpha: 0.1,
+                                  ),
                           ),
                           child: FaIcon(
                             task.isTimerRunning
@@ -263,39 +273,39 @@ class _TaskCardState extends State<TaskCard> {
                       ),
                     ],
                   ),
-                if (task.timerStartAt != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 2, right: 2),
-                        child: FaIcon(
-                          FontAwesomeIcons.clockRotateLeft,
-                          size: 10,
-                          color: CupertinoColors.systemGrey,
+                  if (task.timerStartAt != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 2, right: 2),
+                          child: FaIcon(
+                            FontAwesomeIcons.clockRotateLeft,
+                            size: 10,
+                            color: CupertinoColors.systemGrey,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${'timerStart'.tr()}: ${DateFormat('HH:mm', 'en').format(task.timerStartAt!)}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: CupertinoColors.systemGrey,
-                        ),
-                      ),
-                      if (task.timerEndAt != null) ...[
+                        const SizedBox(width: 6),
                         Text(
-                          ' - ${'timerEnd'.tr()}: ${DateFormat('HH:mm', 'en').format(task.timerEndAt!)}',
+                          '${'timerStart'.tr()}: ${DateFormat('HH:mm', 'en').format(task.timerStartAt!)}',
                           style: const TextStyle(
                             fontSize: 10,
                             color: CupertinoColors.systemGrey,
                           ),
                         ),
+                        if (task.timerEndAt != null) ...[
+                          Text(
+                            ' - ${'timerEnd'.tr()}: ${DateFormat('HH:mm', 'en').format(task.timerEndAt!)}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: CupertinoColors.systemGrey,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ],
-                if (task.details.isNotEmpty)
+                    ),
+                  ],
+                  if (task.details.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
@@ -373,6 +383,7 @@ class _TaskCardState extends State<TaskCard> {
                     children: [
                       buildTypeTag(task.type),
                       buildPaymentTag(context, task),
+                      ..._buildAssigneeChips(context, task),
                     ],
                   ),
                 ],
@@ -382,6 +393,48 @@ class _TaskCardState extends State<TaskCard> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildAssigneeChips(BuildContext context, ProjectTask task) {
+    final assignees = context.watch<ProjectProvider>().assigneesFor(task);
+    if (assignees.isEmpty) return const [];
+    final visible = assignees.take(3).toList();
+    final overflow = assignees.length - visible.length;
+    return [
+      const SizedBox(width: 6),
+      ...visible.map((m) {
+        final color = Color(m.color);
+        return Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              m.initials,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+        );
+      }),
+      if (overflow > 0)
+        Text(
+          '+$overflow',
+          style: const TextStyle(
+            fontSize: 11,
+            color: CupertinoColors.systemGrey,
+          ),
+        ),
+    ];
   }
 
   Widget buildPaymentTag(BuildContext context, ProjectTask task) {

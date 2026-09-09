@@ -115,8 +115,9 @@ class ExpenseCategoriesScreen extends StatelessWidget {
 
     return Dismissible(
       key: Key(cat.id),
-      direction:
-          cat.isDefault ? DismissDirection.none : DismissDirection.endToStart,
+      direction: cat.isDefault
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       confirmDismiss: (_) async {
         if (cat.isDefault) return false;
         _confirmDelete(context, cat, provider);
@@ -133,8 +134,11 @@ class ExpenseCategoriesScreen extends StatelessWidget {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.delete_solid,
-                color: CupertinoColors.white, size: 22),
+            Icon(
+              CupertinoIcons.delete_solid,
+              color: CupertinoColors.white,
+              size: 22,
+            ),
             SizedBox(height: 4),
             Text(
               'Delete',
@@ -173,8 +177,7 @@ class ExpenseCategoriesScreen extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
                 // Icon container
@@ -196,11 +199,7 @@ class ExpenseCategoriesScreen extends StatelessWidget {
                       width: 1,
                     ),
                   ),
-                  child: Icon(
-                    iconForCode(cat.icon),
-                    color: catColor,
-                    size: 22,
-                  ),
+                  child: Icon(iconForCode(cat.icon), color: catColor, size: 22),
                 ),
                 const SizedBox(width: 14),
                 // Name & badge
@@ -219,10 +218,13 @@ class ExpenseCategoriesScreen extends StatelessWidget {
                         const SizedBox(height: 3),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: CupertinoColors.systemGrey5
-                                .resolveFrom(context),
+                            color: CupertinoColors.systemGrey5.resolveFrom(
+                              context,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -308,13 +310,15 @@ class ExpenseCategoriesScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(CupertinoIcons.pencil,
-                    size: 18, color: CupertinoColors.activeBlue),
+                const Icon(
+                  CupertinoIcons.pencil,
+                  size: 18,
+                  color: CupertinoColors.activeBlue,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'editCategory'.tr(),
-                  style:
-                      const TextStyle(color: CupertinoColors.activeBlue),
+                  style: const TextStyle(color: CupertinoColors.activeBlue),
                 ),
               ],
             ),
@@ -329,8 +333,11 @@ class ExpenseCategoriesScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(CupertinoIcons.delete,
-                      size: 18, color: CupertinoColors.destructiveRed),
+                  const Icon(
+                    CupertinoIcons.delete,
+                    size: 18,
+                    color: CupertinoColors.destructiveRed,
+                  ),
                   const SizedBox(width: 8),
                   Text('deleteCategory'.tr()),
                 ],
@@ -366,9 +373,25 @@ class ExpenseCategoriesScreen extends StatelessWidget {
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            onPressed: () {
-              provider.deleteCategory(cat.id);
+            onPressed: () async {
+              final deleted = await provider.deleteCategory(cat.id);
+              if (!context.mounted) return;
               Navigator.pop(context);
+              if (!deleted) {
+                showCupertinoDialog(
+                  context: context,
+                  builder: (_) => CupertinoAlertDialog(
+                    title: Text('cannotDelete'.tr()),
+                    content: Text('categoryInUse'.tr()),
+                    actions: [
+                      CupertinoDialogAction(
+                        child: Text('ok'.tr()),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                );
+              }
             },
             child: Text('delete'.tr()),
           ),
@@ -417,7 +440,9 @@ class ExpenseCategoriesScreen extends StatelessWidget {
                 controller: nameCtrl,
                 placeholder: 'categoryName'.tr(),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: CupertinoColors.systemGrey6.resolveFrom(ctx),
                   borderRadius: BorderRadius.circular(10),
@@ -451,25 +476,29 @@ class ExpenseCategoriesScreen extends StatelessWidget {
                         color: c,
                         shape: BoxShape.circle,
                         border: isSelected
-                            ? Border.all(
-                                color: CupertinoColors.white, width: 3)
+                            ? Border.all(color: CupertinoColors.white, width: 3)
                             : Border.all(
-                                color: CupertinoColors.white
-                                    .withValues(alpha: 0),
-                                width: 0),
+                                color: CupertinoColors.white.withValues(
+                                  alpha: 0,
+                                ),
+                                width: 0,
+                              ),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
                                   color: c.withValues(alpha: 0.55),
                                   blurRadius: 8,
                                   spreadRadius: 1,
-                                )
+                                ),
                               ]
                             : null,
                       ),
                       child: isSelected
-                          ? const Icon(CupertinoIcons.checkmark,
-                              size: 14, color: CupertinoColors.white)
+                          ? const Icon(
+                              CupertinoIcons.checkmark,
+                              size: 14,
+                              color: CupertinoColors.white,
+                            )
                           : null,
                     ),
                   );
@@ -495,8 +524,7 @@ class ExpenseCategoriesScreen extends StatelessWidget {
                   final iconCode = iconCodes[i];
                   final isSelected = iconCode == selectedIcon;
                   return GestureDetector(
-                    onTap: () =>
-                        setDialogState(() => selectedIcon = iconCode),
+                    onTap: () => setDialogState(() => selectedIcon = iconCode),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       width: 40,
@@ -508,15 +536,18 @@ class ExpenseCategoriesScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         border: isSelected
                             ? Border.all(
-                                color: Color(selectedColor), width: 1.8)
+                                color: Color(selectedColor),
+                                width: 1.8,
+                              )
                             : null,
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: Color(selectedColor)
-                                      .withValues(alpha: 0.25),
+                                  color: Color(
+                                    selectedColor,
+                                  ).withValues(alpha: 0.25),
                                   blurRadius: 8,
-                                )
+                                ),
                               ]
                             : null,
                       ),
@@ -543,26 +574,31 @@ class ExpenseCategoriesScreen extends StatelessWidget {
               onPressed: () async {
                 final name = nameCtrl.text.trim();
                 if (name.isEmpty) return;
-                final provider =
-                    Provider.of<ExpensesProvider>(ctx, listen: false);
+                final provider = Provider.of<ExpensesProvider>(
+                  ctx,
+                  listen: false,
+                );
                 if (existing == null) {
-                  await provider.addCategory(ExpenseCategory(
-                    id: const Uuid().v4(),
-                    name: name,
-                    color: selectedColor,
-                    icon: selectedIcon,
-                  ));
+                  await provider.addCategory(
+                    ExpenseCategory(
+                      id: const Uuid().v4(),
+                      name: name,
+                      color: selectedColor,
+                      icon: selectedIcon,
+                    ),
+                  );
                 } else {
-                  await provider.updateCategory(existing.copyWith(
-                    name: name,
-                    color: selectedColor,
-                    icon: selectedIcon,
-                  ));
+                  await provider.updateCategory(
+                    existing.copyWith(
+                      name: name,
+                      color: selectedColor,
+                      icon: selectedIcon,
+                    ),
+                  );
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child:
-                  Text(existing == null ? 'create'.tr() : 'update'.tr()),
+              child: Text(existing == null ? 'create'.tr() : 'update'.tr()),
             ),
           ],
         ),

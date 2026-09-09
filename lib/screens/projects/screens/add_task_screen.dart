@@ -1,10 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:masrofy/models/project_task.dart';
-import 'package:masrofy/providers/project_provider.dart';
-import 'package:masrofy/providers/settings_provider.dart';
-import 'package:masrofy/providers/wallet_provider.dart';
+import 'package:planner/core/utils/app_layout.dart';
+import 'package:planner/models/project_task.dart';
+import 'package:planner/providers/project_provider.dart';
+import 'package:planner/providers/settings_provider.dart';
+import 'package:planner/providers/wallet_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -35,12 +36,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   DateTime? endDate;
   String status = 'toDo';
   String type = 'newFeature';
-  String _currency = "L.E";
+  String _currency = "EGP";
   List<Map<String, dynamic>> subTasks = [];
   bool isPaid = false;
   bool isArchived = false;
   String? selectedPaymentMethodId;
   double _expectedCost = 0.0;
+  final Set<String> selectedAssigneeIds = {};
   final todoController = TextEditingController();
   final statusMap = {
     'toDo': 'toDo'.tr(),
@@ -61,7 +63,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     if (widget.task != null) {
       _currency = widget.task!.currency;
       type = widget.task?.type ?? 'newFeature';
-      status = widget.task?.status ?? 'todo';
+      status = widget.task?.status ?? 'toDo';
       startDate = widget.task!.startDate;
       endDate = widget.task!.endDate;
       nameController.text = widget.task!.name;
@@ -79,6 +81,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       isPaid = widget.task!.isPaid;
       selectedPaymentMethodId = widget.task!.paymentMethodId;
       isArchived = widget.task!.isArchived;
+      selectedAssigneeIds.addAll(widget.task!.assigneeIds);
       // Initialize expected cost for existing tasks
       final rate = double.tryParse(hourlyRateController.text) ?? 0.0;
       _expectedCost = widget.task!.estimatedTime * rate;
@@ -224,19 +227,20 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       minimumSize: const Size(36, 36),
-      onPressed: () => _toggleFieldSpeech(controller, fieldName, dialogSetState),
+      onPressed: () =>
+          _toggleFieldSpeech(controller, fieldName, dialogSetState),
       child: isListening
           ? const Icon(
-              CupertinoIcons.mic_fill,
-              color: CupertinoColors.destructiveRed,
-              size: 18,
-            )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .scale(
-                duration: 400.ms,
-                begin: const Offset(0.85, 0.85),
-                end: const Offset(1.15, 1.15),
-              )
+                  CupertinoIcons.mic_fill,
+                  color: CupertinoColors.destructiveRed,
+                  size: 18,
+                )
+                .animate(onPlay: (c) => c.repeat(reverse: true))
+                .scale(
+                  duration: 400.ms,
+                  begin: const Offset(0.85, 0.85),
+                  end: const Offset(1.15, 1.15),
+                )
           : const Icon(
               CupertinoIcons.mic,
               color: CupertinoColors.systemGrey2,
@@ -344,7 +348,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   projectId: widget.projectId,
                   name: nameController.text,
                   details: detailsController.text,
-                  attachments: [], // Implement attachments later
+                  attachments: widget.task?.attachments ?? const [],
                   startDate: startDate,
                   endDate: endDate,
                   cost: double.tryParse(costController.text) ?? 0.0,
@@ -363,13 +367,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   estimatedTime:
                       double.tryParse(estimatedTimeController.text) ?? 0.0,
                   hourlyRate: double.tryParse(hourlyRateController.text) ?? 0.0,
-                  isArchived: isPaid,
+                  isArchived: isArchived,
+                  assigneeIds: selectedAssigneeIds.toList(),
                 );
 
                 if (widget.task == null) {
-                  provider.addTask(newTask);
+                  await provider.addTask(newTask);
                 } else {
-                  provider.updateTask(newTask);
+                  await provider.updateTask(newTask);
                 }
                 if (context.mounted) {
                   Navigator.pop(context);
@@ -381,202 +386,191 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       ),
       child: SafeArea(
         child: StatefulBuilder(
-          builder: (context, setState) => ListView(
-            padding: const EdgeInsets.all(16),
-            shrinkWrap: true,
-            children: [
-              CupertinoTextField(
-                controller: nameController,
-                placeholder: _listeningFieldName == 'name' ? 'listening'.tr() : 'taskName'.tr(),
-                padding: const EdgeInsets.all(12),
-                suffix: _buildMicSuffix(nameController, 'name', setState),
-              ),
-              const SizedBox(height: 16),
-              CupertinoTextField(
-                controller: detailsController,
-                placeholder: _listeningFieldName == 'details' ? 'listening'.tr() : 'details'.tr(),
-                padding: const EdgeInsets.all(12),
-                maxLines: 3,
-                suffix: _buildMicSuffix(detailsController, 'details', setState),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: CupertinoTextField(
-                      controller: costController,
-                      placeholder: 'cost'.tr(),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      prefix: Padding(
-                        padding: const EdgeInsets.only(left: 8, right: 8),
-                        child: Text(_currency),
+          builder: (context, setState) => AppLayout.constrain(
+            ListView(
+              padding: const EdgeInsets.all(16),
+              shrinkWrap: true,
+              children: [
+                CupertinoTextField(
+                  controller: nameController,
+                  placeholder: _listeningFieldName == 'name'
+                      ? 'listening'.tr()
+                      : 'taskName'.tr(),
+                  padding: const EdgeInsets.all(12),
+                  suffix: _buildMicSuffix(nameController, 'name', setState),
+                ),
+                const SizedBox(height: 16),
+                CupertinoTextField(
+                  controller: detailsController,
+                  placeholder: _listeningFieldName == 'details'
+                      ? 'listening'.tr()
+                      : 'details'.tr(),
+                  padding: const EdgeInsets.all(12),
+                  maxLines: 3,
+                  suffix: _buildMicSuffix(
+                    detailsController,
+                    'details',
+                    setState,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CupertinoTextField(
+                        controller: costController,
+                        placeholder: 'cost'.tr(),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        prefix: Padding(
+                          padding: const EdgeInsets.only(left: 8, right: 8),
+                          child: Text(_currency),
+                        ),
                       ),
                     ),
-                  ),
 
-                  SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () => showCupertinoModalPopup(
-                      context: context,
-                      builder: (_) => CupertinoActionSheet(
-                        title: Text('selectCurrency'.tr()),
-                        actions: settingsProvider.listCurency.map((currency) {
-                          return CupertinoActionSheetAction(
-                            onPressed: () {
-                              setState(() {
-                                _currency = currency;
-                              });
-                              Navigator.pop(context);
-                            },
-                            child: Text(currency.tr()),
-                          );
-                        }).toList(),
-                        cancelButton: CupertinoActionSheetAction(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('cancel'.tr()),
-                        ),
-                      ),
-                    ),
-                    child: Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(_currency),
-                          const FaIcon(FontAwesomeIcons.chevronDown, size: 12),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // Estimated Time Input
-              CupertinoTextField(
-                controller: estimatedTimeController,
-                placeholder: 'estimatedTimePlaceholder'.tr(),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                padding: const EdgeInsets.all(12),
-                suffix: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text(
-                    'hours'.tr(),
-                    style: TextStyle(color: CupertinoColors.systemGrey),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Hourly Rate Input
-              CupertinoTextField(
-                controller: hourlyRateController,
-                placeholder: 'hourCost'.tr(),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                padding: const EdgeInsets.all(12),
-                suffix: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text(
-                    '/ ${'hours'.tr()}',
-                    style: TextStyle(color: CupertinoColors.systemGrey),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Manual Time Spent Entry
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'recordedTime'.tr(),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: CupertinoColors.systemGrey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CupertinoTextField(
-                          controller: hoursController,
-                          placeholder: 'hours'.tr(),
-                          keyboardType: TextInputType.number,
-                          padding: const EdgeInsets.all(12),
-                          suffix: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                            ),
-                            child: Text(
-                              'hours'.tr(),
-                              style: TextStyle(
-                                color: CupertinoColors.systemGrey,
-                              ),
-                            ),
+                    SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () => showCupertinoModalPopup(
+                        context: context,
+                        builder: (_) => CupertinoActionSheet(
+                          title: Text('selectCurrency'.tr()),
+                          actions: settingsProvider.listCurency.map((currency) {
+                            return CupertinoActionSheetAction(
+                              onPressed: () {
+                                setState(() {
+                                  _currency = currency;
+                                });
+                                Navigator.pop(context);
+                              },
+                              child: Text(currency.tr()),
+                            );
+                          }).toList(),
+                          cancelButton: CupertinoActionSheetAction(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text('cancel'.tr()),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CupertinoTextField(
-                          controller: minutesController,
-                          placeholder: 'minutes'.tr(),
-                          keyboardType: TextInputType.number,
-                          padding: const EdgeInsets.all(12),
-                          suffix: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_currency),
+                            const FaIcon(
+                              FontAwesomeIcons.chevronDown,
+                              size: 12,
                             ),
-                            child: Text(
-                              'minutes'.tr(),
-                              style: TextStyle(
-                                color: CupertinoColors.systemGrey,
-                              ),
-                            ),
-                          ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Estimated Time Input
+                CupertinoTextField(
+                  controller: estimatedTimeController,
+                  placeholder: 'estimatedTimePlaceholder'.tr(),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
-                  if (widget.task?.timerStartAt != null) ...[
+                  padding: const EdgeInsets.all(12),
+                  suffix: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Text(
+                      'hours'.tr(),
+                      style: TextStyle(color: CupertinoColors.systemGrey),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Hourly Rate Input
+                CupertinoTextField(
+                  controller: hourlyRateController,
+                  placeholder: 'hourCost'.tr(),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  suffix: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Text(
+                      '/ ${'hours'.tr()}',
+                      style: TextStyle(color: CupertinoColors.systemGrey),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Manual Time Spent Entry
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'recordedTime'.tr(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: CupertinoColors.systemGrey,
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Row(
-                        children: [
-                          Text(
-                            '${"timerStart".tr()}: ',
-                            style: const TextStyle(
-                              color: CupertinoColors.systemGrey,
-                              fontSize: 13,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CupertinoTextField(
+                            controller: hoursController,
+                            placeholder: 'hours'.tr(),
+                            keyboardType: TextInputType.number,
+                            padding: const EdgeInsets.all(12),
+                            suffix: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
+                              child: Text(
+                                'hours'.tr(),
+                                style: TextStyle(
+                                  color: CupertinoColors.systemGrey,
+                                ),
+                              ),
                             ),
                           ),
-                          Text(
-                            DateFormat(
-                              'yyyy-MM-dd HH:mm',
-                              'en',
-                            ).format(widget.task!.timerStartAt!),
-                            style: const TextStyle(fontSize: 13),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CupertinoTextField(
+                            controller: minutesController,
+                            placeholder: 'minutes'.tr(),
+                            keyboardType: TextInputType.number,
+                            padding: const EdgeInsets.all(12),
+                            suffix: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
+                              child: Text(
+                                'minutes'.tr(),
+                                style: TextStyle(
+                                  color: CupertinoColors.systemGrey,
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    if (widget.task?.timerEndAt != null) ...[
-                      const SizedBox(height: 4),
+                    if (widget.task?.timerStartAt != null) ...[
+                      const SizedBox(height: 8),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: Row(
                           children: [
                             Text(
-                              '${"timerEnd".tr()}: ',
+                              '${"timerStart".tr()}: ',
                               style: const TextStyle(
                                 color: CupertinoColors.systemGrey,
                                 fontSize: 13,
@@ -586,440 +580,578 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                               DateFormat(
                                 'yyyy-MM-dd HH:mm',
                                 'en',
-                              ).format(widget.task!.timerEndAt!),
+                              ).format(widget.task!.timerStartAt!),
                               style: const TextStyle(fontSize: 13),
                             ),
                           ],
                         ),
                       ),
+                      if (widget.task?.timerEndAt != null) ...[
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Row(
+                            children: [
+                              Text(
+                                '${"timerEnd".tr()}: ',
+                                style: const TextStyle(
+                                  color: CupertinoColors.systemGrey,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                DateFormat(
+                                  'yyyy-MM-dd HH:mm',
+                                  'en',
+                                ).format(widget.task!.timerEndAt!),
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ],
-                ],
-              ),
-              if (_expectedCost > 0) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  child: Row(
-                    children: [
-                      Text(
-                        '${"expectedCost".tr()}: ',
-                        style: TextStyle(
-                          color: CupertinoColors.systemGrey,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        '${_expectedCost.toStringAsFixed(2)} $_currency',
-                        style: TextStyle(
-                          color: CupertinoColors.activeBlue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
-              ],
-              const SizedBox(height: 16),
-              // Start Date Picker
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('startDate'.tr()),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      child: Text(
-                        DateFormat('yyyy-MM-dd', 'en').format(startDate),
-                        style: const TextStyle(
-                          color: CupertinoColors.activeBlue,
-                        ),
-                      ),
-                      onPressed: () {
-                        showCupertinoModalPopup(
-                          context: context,
-                          builder: (context) => Container(
-                            height: 216,
-                            padding: const EdgeInsets.only(top: 6.0),
-                            margin: EdgeInsets.only(
-                              bottom: MediaQuery.of(context).viewInsets.bottom,
-                            ),
-                            color: CupertinoColors.systemBackground.resolveFrom(
-                              context,
-                            ),
-                            child: SafeArea(
-                              top: false,
-                              child: CupertinoDatePicker(
-                                initialDateTime: startDate,
-                                mode: CupertinoDatePickerMode.date,
-                                use24hFormat: true,
-                                onDateTimeChanged: (DateTime newDate) {
-                                  setState(() {
-                                    startDate = newDate;
-                                  });
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // End Date Picker
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('endDate'.tr()),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      child: Text(
-                        endDate != null
-                            ? DateFormat('yyyy-MM-dd', 'en').format(endDate!)
-                            : 'notSet'.tr(),
-                        style: const TextStyle(
-                          color: CupertinoColors.activeBlue,
-                        ),
-                      ),
-                      onPressed: () {
-                        showCupertinoModalPopup(
-                          context: context,
-                          builder: (context) => Container(
-                            height: 216,
-                            padding: const EdgeInsets.only(top: 6.0),
-                            margin: EdgeInsets.only(
-                              bottom: MediaQuery.of(context).viewInsets.bottom,
-                            ),
-                            color: CupertinoColors.systemBackground.resolveFrom(
-                              context,
-                            ),
-                            child: SafeArea(
-                              top: false,
-                              child: CupertinoDatePicker(
-                                initialDateTime: endDate ?? startDate,
-                                mode: CupertinoDatePickerMode.date,
-                                use24hFormat: true,
-                                minimumDate: startDate,
-                                onDateTimeChanged: (DateTime newDate) {
-                                  setState(() {
-                                    endDate = newDate;
-                                  });
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text('status'.tr()),
-              const SizedBox(height: 8),
-              CupertinoSegmentedControl<String>(
-                groupValue: status,
-                children: statusMap.map(
-                  (key, value) => MapEntry(
-                    key,
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(value),
-                    ),
-                  ),
-                ),
-                onValueChanged: (value) {
-                  setState(() {
-                    status = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              Text('type'.tr()),
-              const SizedBox(height: 8),
-              CupertinoSegmentedControl<String>(
-                groupValue: type,
-                children: typeMap.map(
-                  (k, value) => MapEntry(
-                    k,
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(value.tr()),
-                    ),
-                  ),
-                ),
-                onValueChanged: (value) {
-                  setState(() {
-                    type = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              // Payment Section
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                if (_expectedCost > 0) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Row(
                       children: [
-                        Text('isPaid'.tr()),
-                        CupertinoSwitch(
-                          value: isPaid,
-                          onChanged: (value) {
-                            setState(() {
-                              isPaid = value;
-                            });
-                          },
+                        Text(
+                          '${"expectedCost".tr()}: ',
+                          style: TextStyle(
+                            color: CupertinoColors.systemGrey,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          '${_expectedCost.toStringAsFixed(2)} $_currency',
+                          style: TextStyle(
+                            color: CupertinoColors.activeBlue,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
-                    if (isPaid) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Divider(height: 1),
-                      ),
-                      Consumer<WalletProvider>(
-                        builder: (context, walletProvider, _) {
-                          final method = walletProvider.paymentMethods
-                              .where((m) => m.id == selectedPaymentMethodId)
-                              .firstOrNull;
-
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('paymentMethod'.tr()),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                child: Text(
-                                  method?.name ?? 'select'.tr(),
-                                  style: const TextStyle(
-                                    color: CupertinoColors.activeBlue,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  showCupertinoModalPopup(
-                                    context: context,
-                                    builder: (context) => CupertinoActionSheet(
-                                      title: Text('selectPaymentMethod'.tr()),
-                                      actions: walletProvider.paymentMethods
-                                          .map((m) {
-                                            return CupertinoActionSheetAction(
-                                              onPressed: () {
-                                                setState(() {
-                                                  selectedPaymentMethodId =
-                                                      m.id;
-                                                });
-                                                Navigator.pop(context);
-                                              },
-                                              child: Text(m.name),
-                                            );
-                                          })
-                                          .toList(),
-                                      cancelButton: CupertinoActionSheetAction(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text('cancel'.tr()),
-                                      ),
-                                    ),
-                                  );
-                                },
+                  ),
+                ],
+                const SizedBox(height: 16),
+                // Start Date Picker
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey6,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('startDate'.tr()),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: Text(
+                          DateFormat('yyyy-MM-dd', 'en').format(startDate),
+                          style: const TextStyle(
+                            color: CupertinoColors.activeBlue,
+                          ),
+                        ),
+                        onPressed: () {
+                          showCupertinoModalPopup(
+                            context: context,
+                            builder: (context) => Container(
+                              height: 216,
+                              padding: const EdgeInsets.only(top: 6.0),
+                              margin: EdgeInsets.only(
+                                bottom: MediaQuery.of(
+                                  context,
+                                ).viewInsets.bottom,
                               ),
-                            ],
+                              color: CupertinoColors.systemBackground
+                                  .resolveFrom(context),
+                              child: SafeArea(
+                                top: false,
+                                child: CupertinoDatePicker(
+                                  initialDateTime: startDate,
+                                  mode: CupertinoDatePickerMode.date,
+                                  use24hFormat: true,
+                                  onDateTimeChanged: (DateTime newDate) {
+                                    setState(() {
+                                      startDate = newDate;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
                           );
                         },
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              // Todo List Section
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'todoList'.tr(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Row(
-                          children: [
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              child: const FaIcon(
-                                FontAwesomeIcons.arrowDownShortWide,
-                                size: 20,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  subTasks.sort((a, b) {
-                                    if (a['isDone'] == b['isDone']) return 0;
-                                    return a['isDone'] ? 1 : -1;
-                                  });
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 16),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              child: const FaIcon(
-                                FontAwesomeIcons.circlePlus,
-                                size: 20,
-                              ),
-                              onPressed: () {
-                                if (todoController.text.isNotEmpty) {
-                                  setState(() {
-                                    subTasks.add({
-                                      'title': todoController.text,
-                                      'isDone': false,
-                                    });
-                                    todoController.clear();
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    CupertinoTextField(
-                      controller: todoController,
-                      placeholder: _listeningFieldName == 'todo' ? 'listening'.tr() : 'todoPlaceholder'.tr(),
-                      padding: const EdgeInsets.all(10),
-                      suffix: _buildMicSuffix(todoController, 'todo', setState),
-                      onSubmitted: (value) {
-                        if (value.isNotEmpty) {
-                          setState(() {
-                            subTasks.add({'title': value, 'isDone': false});
-                            todoController.clear();
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    if (subTasks.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Center(
-                          child: Text(
-                            'noTasksYet'.tr(),
-                            style: TextStyle(
-                              color: CupertinoColors.systemGrey,
-                              fontSize: 14,
-                            ),
+                const SizedBox(height: 16),
+                // End Date Picker
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey6,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('endDate'.tr()),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: Text(
+                          endDate != null
+                              ? DateFormat('yyyy-MM-dd', 'en').format(endDate!)
+                              : 'notSet'.tr(),
+                          style: const TextStyle(
+                            color: CupertinoColors.activeBlue,
                           ),
                         ),
-                      )
-                    else
-                      ReorderableListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: subTasks.length,
-                        onReorderItem: (oldIndex, newIndex) {
-                          setState(() {
-                            final item = subTasks.removeAt(oldIndex);
-                            subTasks.insert(newIndex, item);
-                          });
+                        onPressed: () {
+                          showCupertinoModalPopup(
+                            context: context,
+                            builder: (context) => Container(
+                              height: 216,
+                              padding: const EdgeInsets.only(top: 6.0),
+                              margin: EdgeInsets.only(
+                                bottom: MediaQuery.of(
+                                  context,
+                                ).viewInsets.bottom,
+                              ),
+                              color: CupertinoColors.systemBackground
+                                  .resolveFrom(context),
+                              child: SafeArea(
+                                top: false,
+                                child: CupertinoDatePicker(
+                                  initialDateTime: endDate ?? startDate,
+                                  mode: CupertinoDatePickerMode.date,
+                                  use24hFormat: true,
+                                  minimumDate: startDate,
+                                  onDateTimeChanged: (DateTime newDate) {
+                                    setState(() {
+                                      endDate = newDate;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
                         },
-                        itemBuilder: (context, index) {
-                          final todo = subTasks[index];
-                          return Container(
-                            key: ObjectKey(todo),
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            color: Colors.transparent,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('status'.tr()),
+                const SizedBox(height: 8),
+                CupertinoSegmentedControl<String>(
+                  groupValue: status,
+                  children: statusMap.map(
+                    (key, value) => MapEntry(
+                      key,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(value),
+                      ),
+                    ),
+                  ),
+                  onValueChanged: (value) {
+                    setState(() {
+                      status = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                Text('type'.tr()),
+                const SizedBox(height: 8),
+                CupertinoSegmentedControl<String>(
+                  groupValue: type,
+                  children: typeMap.map(
+                    (k, value) => MapEntry(
+                      k,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(value.tr()),
+                      ),
+                    ),
+                  ),
+                  onValueChanged: (value) {
+                    setState(() {
+                      type = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                Text('assignees'.tr()),
+                const SizedBox(height: 8),
+                Consumer<ProjectProvider>(
+                  builder: (context, projectProvider, _) {
+                    final members = projectProvider.getMembers(
+                      widget.projectId,
+                    );
+                    if (members.isEmpty) {
+                      return Text(
+                        'addMembersFirst'.tr(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: CupertinoColors.systemGrey,
+                        ),
+                      );
+                    }
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: members.map((m) {
+                        final selected = selectedAssigneeIds.contains(m.id);
+                        final color = Color(m.color);
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (selected) {
+                                selectedAssigneeIds.remove(m.id);
+                              } else {
+                                selectedAssigneeIds.add(m.id);
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? color.withValues(alpha: 0.2)
+                                  : CupertinoColors.systemGrey6,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: selected
+                                    ? color
+                                    : CupertinoColors.systemGrey4,
+                              ),
+                            ),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      subTasks[index]['isDone'] =
-                                          !subTasks[index]['isDone'];
-                                    });
-                                  },
-                                  child: FaIcon(
-                                    todo['isDone']
-                                        ? FontAwesomeIcons.solidCircleCheck
-                                        : FontAwesomeIcons.circle,
-                                    color: todo['isDone']
-                                        ? CupertinoColors.activeGreen
-                                        : CupertinoColors.systemGrey,
-                                    size: 20,
+                                Container(
+                                  width: 22,
+                                  height: 22,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.25),
+                                    shape: BoxShape.circle,
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
                                   child: Text(
-                                    todo['title'],
+                                    m.initials,
                                     style: TextStyle(
-                                      decoration: todo['isDone']
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color: todo['isDone']
-                                          ? CupertinoColors.systemGrey
-                                          : null,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: color,
                                     ),
                                   ),
                                 ),
-                                CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  child: const FaIcon(
-                                    FontAwesomeIcons.trashCan,
-                                    color: CupertinoColors.systemRed,
-                                    size: 18,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      subTasks.removeAt(index);
-                                    });
-                                  },
-                                ),
-                                ReorderableDragStartListener(
-                                  index: index,
-                                  child: Container(
-                                    padding: EdgeInsets.only(left: 8),
-                                    child: const FaIcon(
-                                      FontAwesomeIcons.gripLines,
-                                      color: CupertinoColors.systemGrey,
-                                      size: 18,
-                                    ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  m.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: selected
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
                                   ),
                                 ),
                               ],
                             ),
-                          );
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                // Payment Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey6,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('isPaid'.tr()),
+                          CupertinoSwitch(
+                            value: isPaid,
+                            onChanged: (value) {
+                              setState(() {
+                                isPaid = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      if (isPaid) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Divider(height: 1),
+                        ),
+                        Consumer<WalletProvider>(
+                          builder: (context, walletProvider, _) {
+                            final method = walletProvider.paymentMethods
+                                .where((m) => m.id == selectedPaymentMethodId)
+                                .firstOrNull;
+
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('paymentMethod'.tr()),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  child: Text(
+                                    method?.name ?? 'select'.tr(),
+                                    style: const TextStyle(
+                                      color: CupertinoColors.activeBlue,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    showCupertinoModalPopup(
+                                      context: context,
+                                      builder: (context) => CupertinoActionSheet(
+                                        title: Text('selectPaymentMethod'.tr()),
+                                        actions: walletProvider.paymentMethods
+                                            .map((m) {
+                                              return CupertinoActionSheetAction(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    selectedPaymentMethodId =
+                                                        m.id;
+                                                  });
+                                                  Navigator.pop(context);
+                                                },
+                                                child: Text(m.name),
+                                              );
+                                            })
+                                            .toList(),
+                                        cancelButton:
+                                            CupertinoActionSheetAction(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: Text('cancel'.tr()),
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Todo List Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey6,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'todoList'.tr(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Row(
+                            children: [
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                child: const FaIcon(
+                                  FontAwesomeIcons.arrowDownShortWide,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    subTasks.sort((a, b) {
+                                      if (a['isDone'] == b['isDone']) return 0;
+                                      return a['isDone'] ? 1 : -1;
+                                    });
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 16),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                child: const FaIcon(
+                                  FontAwesomeIcons.circlePlus,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  if (todoController.text.isNotEmpty) {
+                                    setState(() {
+                                      subTasks.add({
+                                        'title': todoController.text,
+                                        'isDone': false,
+                                      });
+                                      todoController.clear();
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      CupertinoTextField(
+                        controller: todoController,
+                        placeholder: _listeningFieldName == 'todo'
+                            ? 'listening'.tr()
+                            : 'todoPlaceholder'.tr(),
+                        padding: const EdgeInsets.all(10),
+                        suffix: _buildMicSuffix(
+                          todoController,
+                          'todo',
+                          setState,
+                        ),
+                        onSubmitted: (value) {
+                          if (value.isNotEmpty) {
+                            setState(() {
+                              subTasks.add({'title': value, 'isDone': false});
+                              todoController.clear();
+                            });
+                          }
                         },
                       ),
-                  ],
+                      const SizedBox(height: 8),
+                      if (subTasks.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Center(
+                            child: Text(
+                              'noTasksYet'.tr(),
+                              style: TextStyle(
+                                color: CupertinoColors.systemGrey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Theme(
+                          data:
+                              CupertinoTheme.brightnessOf(context) ==
+                                  Brightness.dark
+                              ? ThemeData.dark().copyWith(
+                                  scaffoldBackgroundColor: const Color(
+                                    0xFF1C1C1E,
+                                  ),
+                                )
+                              : ThemeData.light(),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ReorderableListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: subTasks.length,
+                              onReorderItem: (oldIndex, newIndex) {
+                                setState(() {
+                                  final item = subTasks.removeAt(oldIndex);
+                                  subTasks.insert(newIndex, item);
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                final todo = subTasks[index];
+                                return Container(
+                                  key: ObjectKey(todo),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4.0,
+                                  ),
+                                  color: Colors.transparent,
+                                  child: Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            subTasks[index]['isDone'] =
+                                                !subTasks[index]['isDone'];
+                                          });
+                                        },
+                                        child: FaIcon(
+                                          todo['isDone']
+                                              ? FontAwesomeIcons
+                                                    .solidCircleCheck
+                                              : FontAwesomeIcons.circle,
+                                          color: todo['isDone']
+                                              ? CupertinoColors.activeGreen
+                                              : CupertinoColors.systemGrey,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          todo['title'],
+                                          style: TextStyle(
+                                            decoration: todo['isDone']
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                            color: todo['isDone']
+                                                ? CupertinoColors.systemGrey
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                      CupertinoButton(
+                                        padding: EdgeInsets.zero,
+                                        child: const FaIcon(
+                                          FontAwesomeIcons.trashCan,
+                                          color: CupertinoColors.systemRed,
+                                          size: 18,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            subTasks.removeAt(index);
+                                          });
+                                        },
+                                      ),
+                                      ReorderableDragStartListener(
+                                        index: index,
+                                        child: Container(
+                                          padding: EdgeInsets.only(left: 8),
+                                          child: const FaIcon(
+                                            FontAwesomeIcons.gripLines,
+                                            color: CupertinoColors.systemGrey,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),

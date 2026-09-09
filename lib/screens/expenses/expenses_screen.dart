@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils/app_colors.dart';
+import '../../core/utils/app_layout.dart';
 import '../../models/expense.dart';
 import '../../models/expense_category.dart';
 import '../../models/payment_method.dart';
@@ -59,25 +60,32 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   Widget build(BuildContext context) {
     return Consumer3<ExpensesProvider, SettingsProvider, WalletProvider>(
       builder: (_, expProvider, settings, walletProvider, child) {
+        final desktop = AppLayout.of(context).hasSidebar;
         final allExpenses = expProvider.expenses;
         final availableMonths = _getAvailableMonths(allExpenses);
 
         // 1. Filter by Selected Month
         List<Expense> monthFiltered = allExpenses;
         if (_selectedMonth != null) {
-          monthFiltered = allExpenses.where((e) => 
-            e.date.year == _selectedMonth!.year && 
-            e.date.month == _selectedMonth!.month
-          ).toList();
+          monthFiltered = allExpenses
+              .where(
+                (e) =>
+                    e.date.year == _selectedMonth!.year &&
+                    e.date.month == _selectedMonth!.month,
+              )
+              .toList();
         }
 
         // Calculate total for monthFiltered
-        final double monthTotal = monthFiltered.fold(0.0, (sum, e) => sum + e.amount);
+        final double monthTotal = monthFiltered.fold(
+          0.0,
+          (sum, e) => sum + settings.convert(e.amount, e.currency),
+        );
 
         // Calculate Category Aggregates for monthFiltered
         final monthExpensesByCategory = <String, double>{};
         for (final exp in monthFiltered) {
-          monthExpensesByCategory[exp.categoryId] = 
+          monthExpensesByCategory[exp.categoryId] =
               (monthExpensesByCategory[exp.categoryId] ?? 0.0) + exp.amount;
         }
 
@@ -85,120 +93,130 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         final filtered = _selectedCategoryId == 'all'
             ? monthFiltered
             : monthFiltered
-                .where((e) => e.categoryId == _selectedCategoryId)
-                .toList();
+                  .where((e) => e.categoryId == _selectedCategoryId)
+                  .toList();
 
         return CupertinoPageScaffold(
           navigationBar: CupertinoNavigationBar(
             middle: Text('expenses'.tr()),
             trailing: CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: () => _navigateTo(
-                context,
-                const ExpenseCategoriesScreen(),
-              ),
+              onPressed: () =>
+                  _navigateTo(context, const ExpenseCategoriesScreen()),
               child: const Icon(CupertinoIcons.tag),
             ),
           ),
           child: SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                // ── Total Card ─────────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: _buildTotalCard(monthTotal, monthFiltered.length, settings)
-                      .animate()
-                      .fadeIn(duration: 400.ms)
-                      .slideY(begin: -0.08, end: 0),
-                ),
-
-                // ── Month Filter ───────────────────────────────────────────
-                SliverToBoxAdapter(
-                  child: _buildMonthFilterBar(availableMonths),
-                ),
-
-                // ── Chart ──────────────────────────────────────────────────
-                if (monthExpensesByCategory.isNotEmpty)
+            child: AppLayout.constrain(
+              CustomScrollView(
+                slivers: [
+                  // ── Total Card ─────────────────────────────────────────────
                   SliverToBoxAdapter(
-                    child: _buildChartSection(
-                      monthExpensesByCategory,
-                      expProvider.categories,
-                      monthTotal,
-                      settings,
-                    )
-                        .animate()
-                        .fadeIn(delay: 80.ms, duration: 400.ms),
+                    child: desktop
+                        ? _buildTotalCard(
+                            monthTotal,
+                            monthFiltered.length,
+                            settings,
+                          )
+                        : _buildTotalCard(
+                                monthTotal,
+                                monthFiltered.length,
+                                settings,
+                              )
+                              .animate()
+                              .fadeIn(duration: 400.ms)
+                              .slideY(begin: -0.08, end: 0),
                   ),
 
-                // ── Category Filter ─────────────────────────────────────────
-                if (monthExpensesByCategory.isNotEmpty)
+                  // ── Month Filter ───────────────────────────────────────────
                   SliverToBoxAdapter(
-                    child: _buildCategoryFilter(expProvider, monthExpensesByCategory),
+                    child: _buildMonthFilterBar(availableMonths),
                   ),
 
-                // ── Section Header ──────────────────────────────────────────
-                if (allExpenses.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-                      child: Text(
-                        '${_selectedCategoryId == 'all' ? monthFiltered.length : filtered.length} ${'expenseRecords'.tr()}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: CupertinoColors.systemGrey,
+                  // ── Chart ──────────────────────────────────────────────────
+                  if (monthExpensesByCategory.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: desktop
+                          ? _buildChartSection(
+                              monthExpensesByCategory,
+                              expProvider.categories,
+                              monthTotal,
+                              settings,
+                            )
+                          : _buildChartSection(
+                              monthExpensesByCategory,
+                              expProvider.categories,
+                              monthTotal,
+                              settings,
+                            ).animate().fadeIn(delay: 80.ms, duration: 400.ms),
+                    ),
+
+                  // ── Category Filter ─────────────────────────────────────────
+                  if (monthExpensesByCategory.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: _buildCategoryFilter(
+                        expProvider,
+                        monthExpensesByCategory,
+                      ),
+                    ),
+
+                  // ── Section Header ──────────────────────────────────────────
+                  if (allExpenses.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                        child: Text(
+                          '${_selectedCategoryId == 'all' ? monthFiltered.length : filtered.length} ${'expenseRecords'.tr()}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoColors.systemGrey,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                // ── Expenses List ────────────────────────────────────────────
-                if (filtered.isEmpty)
-                  SliverToBoxAdapter(
-                    child: _buildEmptyState(context),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (_, i) {
-                          final expense = filtered[i];
-                          return ExpenseCard(
-                            expense: expense,
-                            category: expProvider
-                                .getCategoryById(expense.categoryId),
-                            paymentMethod: _paymentMethodFor(
-                              expense,
-                              walletProvider.paymentMethods,
+                  // ── Expenses List ────────────────────────────────────────────
+                  if (filtered.isEmpty)
+                    SliverToBoxAdapter(child: _buildEmptyState(context))
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      sliver: AppLayout.of(context).isExpanded
+                          ? SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 520,
+                                    mainAxisExtent: 132,
+                                  ),
+                              delegate: SliverChildBuilderDelegate((_, i) {
+                                return _expenseCard(
+                                  context,
+                                  filtered[i],
+                                  expProvider,
+                                  walletProvider,
+                                  i,
+                                );
+                              }, childCount: filtered.length),
+                            )
+                          : SliverList(
+                              delegate: SliverChildBuilderDelegate((_, i) {
+                                return _expenseCard(
+                                  context,
+                                  filtered[i],
+                                  expProvider,
+                                  walletProvider,
+                                  i,
+                                );
+                              }, childCount: filtered.length),
                             ),
-                            onTap: () => _navigateTo(
-                              context,
-                              AddExpenseScreen(expense: expense),
-                            ),
-                            onDelete: () => _confirmDelete(
-                              context,
-                              expense,
-                              expProvider,
-                            ),
-                          )
-                              .animate()
-                              .fadeIn(
-                                delay: Duration(milliseconds: i * 40),
-                                duration: const Duration(milliseconds: 280),
-                              )
-                              .slideX(begin: 0.04, end: 0);
-                        },
-                        childCount: filtered.length,
-                      ),
                     ),
-                  ),
 
-                // Bottom padding
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              ],
+                  // Bottom padding
+                  const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                ],
+              ),
+              maxWidth: AppLayout.maxContentWidth,
             ),
           ),
         );
@@ -294,7 +312,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     ),
                     // Add button
                     GestureDetector(
-                      onTap: () => _navigateTo(context, const AddExpenseScreen()),
+                      onTap: () =>
+                          _navigateTo(context, const AddExpenseScreen()),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -333,7 +352,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  '${settings.currency} ${totalAmount.toStringAsFixed(2)}',
+                  settings.formatMoney(totalAmount),
                   style: const TextStyle(
                     color: CupertinoColors.white,
                     fontSize: 36,
@@ -484,6 +503,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               categories: categories,
               total: total,
               currency: settings.expensesCurrency,
+              animate: !AppLayout.of(context).hasSidebar,
             ),
           ),
         ],
@@ -495,9 +515,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   Widget _buildMonthFilterBar(List<DateTime> availableMonths) {
     if (availableMonths.isEmpty) return const SizedBox.shrink();
-    
+
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    
+
     return Container(
       height: 38,
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -508,24 +528,25 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         itemBuilder: (context, index) {
           final isAll = index == 0;
           final DateTime? month = isAll ? null : availableMonths[index - 1];
-          final isSelected = isAll 
-              ? (_selectedMonth == null) 
-              : (_selectedMonth != null && 
-                 _selectedMonth!.year == month!.year && 
-                 _selectedMonth!.month == month.month);
-          
+          final isSelected = isAll
+              ? (_selectedMonth == null)
+              : (_selectedMonth != null &&
+                    _selectedMonth!.year == month!.year &&
+                    _selectedMonth!.month == month.month);
+
           String label;
           if (isAll) {
             label = 'all'.tr();
           } else {
             label = DateFormat.yMMMM(context.locale.toString()).format(month!);
           }
-          
+
           return GestureDetector(
             onTap: () {
               setState(() {
                 _selectedMonth = month;
-                _selectedCategoryId = 'all'; // Reset category filter when switching month
+                _selectedCategoryId =
+                    'all'; // Reset category filter when switching month
               });
             },
             child: Container(
@@ -533,20 +554,30 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                gradient: isSelected ? const LinearGradient(
-                  colors: AppColors.expenseGradient,
-                ) : null,
-                color: isSelected ? null : (isDark ? const Color(0xFF2C2C2E) : CupertinoColors.systemGrey6.resolveFrom(context)),
+                gradient: isSelected
+                    ? const LinearGradient(colors: AppColors.expenseGradient)
+                    : null,
+                color: isSelected
+                    ? null
+                    : (isDark
+                          ? const Color(0xFF2C2C2E)
+                          : CupertinoColors.systemGrey6.resolveFrom(context)),
                 borderRadius: BorderRadius.circular(19),
                 border: Border.all(
-                  color: isSelected ? CupertinoColors.transparent : (isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE2E8F0)),
+                  color: isSelected
+                      ? CupertinoColors.transparent
+                      : (isDark
+                            ? const Color(0xFF3A3A3C)
+                            : const Color(0xFFE2E8F0)),
                   width: 0.8,
                 ),
               ),
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? CupertinoColors.white : CupertinoColors.label.resolveFrom(context),
+                  color: isSelected
+                      ? CupertinoColors.white
+                      : CupertinoColors.label.resolveFrom(context),
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 ),
@@ -607,7 +638,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     color: chipColor.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -654,10 +685,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           const SizedBox(height: 20),
           Text(
             'noExpenses'.tr(),
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
@@ -718,10 +746,32 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  void _navigateTo(BuildContext context, Widget screen) {
-    Navigator.of(context).push(
-      CupertinoPageRoute(builder: (_) => screen),
+  Widget _expenseCard(
+    BuildContext context,
+    Expense expense,
+    ExpensesProvider expProvider,
+    WalletProvider walletProvider,
+    int i,
+  ) {
+    final card = ExpenseCard(
+      expense: expense,
+      category: expProvider.getCategoryById(expense.categoryId),
+      paymentMethod: _paymentMethodFor(expense, walletProvider.paymentMethods),
+      onTap: () => _navigateTo(context, AddExpenseScreen(expense: expense)),
+      onDelete: () => _confirmDelete(context, expense, expProvider),
     );
+    if (AppLayout.of(context).hasSidebar) return card;
+    return card
+        .animate()
+        .fadeIn(
+          delay: Duration(milliseconds: i * 40),
+          duration: const Duration(milliseconds: 280),
+        )
+        .slideX(begin: 0.04, end: 0);
+  }
+
+  void _navigateTo(BuildContext context, Widget screen) {
+    Navigator.of(context).push(CupertinoPageRoute(builder: (_) => screen));
   }
 
   void _confirmDelete(

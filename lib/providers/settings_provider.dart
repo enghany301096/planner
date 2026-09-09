@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../core/services/currency_service.dart';
+import '../core/utils/currency_helper.dart';
 
 class SettingsProvider with ChangeNotifier {
   bool _isBiometricEnabled = false;
+  bool _hideAmounts = false;
+  bool _isAppLocked = false;
+  bool _hasUnlockedOnce = false;
   bool _areSettingsLoaded = false;
   bool _isDarkMode = false;
-  String _currency = 'L.E';
-  String _expensesCurrency = 'USD';
+  String _currency = CurrencyHelper.egp;
+  String _expensesCurrency = CurrencyHelper.usd;
   double _hourCost = 5.0;
   bool _showHourCostInPrint = true;
   bool _showTaskTimeInPrint = true;
@@ -19,9 +23,16 @@ class SettingsProvider with ChangeNotifier {
   double _usdToSar = 3.75;
   String _lastRatesUpdate = '';
   bool _isFetchingRates = false;
-  List<String> listCurency = ['L.E', 'USD', 'SAR'];
+  bool _compactSidebar = false;
+  bool _compactDensity = false;
+  bool _rememberLastSection = false;
+  bool _keyboardShortcuts = true;
+  String _lastSection = 'home';
+  List<String> listCurency = CurrencyHelper.codes;
 
   bool get isBiometricEnabled => _isBiometricEnabled;
+  bool get hideAmounts => _hideAmounts;
+  bool get isAppLocked => _isAppLocked && _isBiometricEnabled;
   bool get areSettingsLoaded => _areSettingsLoaded;
   bool get isDarkMode => _isDarkMode;
 
@@ -37,6 +48,13 @@ class SettingsProvider with ChangeNotifier {
   double get usdToSar => _usdToSar;
   String get lastRatesUpdate => _lastRatesUpdate;
   bool get isFetchingRates => _isFetchingRates;
+  bool get compactSidebar => _compactSidebar;
+  bool get compactDensity => _compactDensity;
+  bool get rememberLastSection => _rememberLastSection;
+  bool get keyboardShortcuts => _keyboardShortcuts;
+  String get lastSection => _lastSection;
+  double get cardPadding => _compactDensity ? 12 : 20;
+  double get listGap => _compactDensity ? 6 : 12;
 
   SettingsProvider() {
     _loadSettings();
@@ -45,9 +63,12 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isBiometricEnabled = prefs.getBool('isBiometricEnabled') ?? false;
+    _hideAmounts = prefs.getBool('hideAmounts') ?? false;
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-    _currency = prefs.getString('currency') ?? 'L.E';
-    _expensesCurrency = prefs.getString('expensesCurrency') ?? 'USD';
+    _currency = CurrencyHelper.normalize(prefs.getString('currency') ?? 'EGP');
+    _expensesCurrency = CurrencyHelper.normalize(
+      prefs.getString('expensesCurrency') ?? 'USD',
+    );
     _hourCost = prefs.getDouble('hourCost') ?? 5.0;
     _showHourCostInPrint = prefs.getBool('showHourCostInPrint') ?? true;
     _showTaskTimeInPrint = prefs.getBool('showTaskTimeInPrint') ?? true;
@@ -57,6 +78,11 @@ class SettingsProvider with ChangeNotifier {
     _usdToEgp = prefs.getDouble('usdToEgp') ?? 48.50;
     _usdToSar = prefs.getDouble('usdToSar') ?? 3.75;
     _lastRatesUpdate = prefs.getString('lastRatesUpdate') ?? '';
+    _compactSidebar = prefs.getBool('compactSidebar') ?? false;
+    _compactDensity = prefs.getBool('compactDensity') ?? false;
+    _rememberLastSection = prefs.getBool('rememberLastSection') ?? false;
+    _keyboardShortcuts = prefs.getBool('keyboardShortcuts') ?? true;
+    _lastSection = prefs.getString('lastSection') ?? 'home';
     _areSettingsLoaded = true;
     notifyListeners();
   }
@@ -64,7 +90,35 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setBiometricEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     _isBiometricEnabled = value;
+    if (!value) _isAppLocked = false;
     await prefs.setBool('isBiometricEnabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setHideAmounts(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _hideAmounts = value;
+    await prefs.setBool('hideAmounts', value);
+    notifyListeners();
+  }
+
+  String formatMoney(double amount, [String? currency]) {
+    return CurrencyHelper.format(
+      amount,
+      currency ?? _currency,
+      hidden: _hideAmounts,
+    );
+  }
+
+  void lockApp() {
+    if (!_isBiometricEnabled || !_hasUnlockedOnce) return;
+    _isAppLocked = true;
+    notifyListeners();
+  }
+
+  void unlockApp() {
+    _isAppLocked = false;
+    _hasUnlockedOnce = true;
     notifyListeners();
   }
 
@@ -77,7 +131,7 @@ class SettingsProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _usdToEgp = rates['EGP'] ?? _usdToEgp;
       _usdToSar = rates['SAR'] ?? _usdToSar;
-      
+
       final now = DateTime.now();
       final formatter = DateFormat('yyyy-MM-dd HH:mm');
       _lastRatesUpdate = formatter.format(now);
@@ -86,7 +140,7 @@ class SettingsProvider with ChangeNotifier {
       await prefs.setDouble('usdToSar', _usdToSar);
       await prefs.setString('lastRatesUpdate', _lastRatesUpdate);
     }
-    
+
     _isFetchingRates = false;
     notifyListeners();
   }
@@ -100,16 +154,26 @@ class SettingsProvider with ChangeNotifier {
 
   Future<void> setCurrency(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    _currency = value;
-    await prefs.setString('currency', value);
+    _currency = CurrencyHelper.normalize(value);
+    await prefs.setString('currency', _currency);
     notifyListeners();
   }
 
   Future<void> setExpensesCurrency(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    _expensesCurrency = value;
-    await prefs.setString('expensesCurrency', value);
+    _expensesCurrency = CurrencyHelper.normalize(value);
+    await prefs.setString('expensesCurrency', _expensesCurrency);
     notifyListeners();
+  }
+
+  double convert(double amount, String from, [String? to]) {
+    return CurrencyHelper.convert(
+      amount,
+      from,
+      to ?? _currency,
+      usdToEgp: _usdToEgp,
+      usdToSar: _usdToSar,
+    );
   }
 
   Future<void> setHourCost(double value) async {
@@ -152,5 +216,41 @@ class SettingsProvider with ChangeNotifier {
     _isExpensesEnabled = value;
     await prefs.setBool('isExpensesEnabled', value);
     notifyListeners();
+  }
+
+  Future<void> setCompactSidebar(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _compactSidebar = value;
+    await prefs.setBool('compactSidebar', value);
+    notifyListeners();
+  }
+
+  Future<void> setCompactDensity(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _compactDensity = value;
+    await prefs.setBool('compactDensity', value);
+    notifyListeners();
+  }
+
+  Future<void> setRememberLastSection(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _rememberLastSection = value;
+    await prefs.setBool('rememberLastSection', value);
+    notifyListeners();
+  }
+
+  Future<void> setKeyboardShortcuts(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _keyboardShortcuts = value;
+    await prefs.setBool('keyboardShortcuts', value);
+    notifyListeners();
+  }
+
+  Future<void> setLastSection(String value) async {
+    if (_lastSection == value) return;
+    _lastSection = value;
+    if (!_rememberLastSection) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('lastSection', value);
   }
 }

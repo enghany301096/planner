@@ -1,10 +1,16 @@
 class Project {
+  static const coverImage = 'image';
+  static const coverIcon = 'icon';
+
   final String id;
   final String name;
   final String description;
   final DateTime? endDate;
   final String status;
   final String? imagePath;
+  final String? customer;
+  final String coverType;
+  final int? icon;
 
   Project({
     required this.id,
@@ -13,7 +19,12 @@ class Project {
     this.endDate,
     this.status = 'active',
     this.imagePath,
+    this.customer,
+    this.coverType = coverImage,
+    this.icon,
   });
+
+  bool get usesIconCover => coverType == coverIcon;
 
   Map<String, dynamic> toMap() {
     return {
@@ -23,6 +34,9 @@ class Project {
       'endDate': endDate?.toIso8601String(),
       'status': status,
       'imagePath': imagePath,
+      'customer': customer,
+      'coverType': coverType,
+      'icon': icon,
     };
   }
 
@@ -34,6 +48,11 @@ class Project {
       endDate: map['endDate'] != null ? DateTime.parse(map['endDate']) : null,
       status: map['status'] ?? 'active',
       imagePath: map['imagePath'],
+      customer: map['customer'] as String?,
+      coverType: (map['coverType'] as String?)?.isNotEmpty == true
+          ? map['coverType'] as String
+          : coverImage,
+      icon: map['icon'] == null ? null : (map['icon'] as num).toInt(),
     );
   }
 }

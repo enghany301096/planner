@@ -60,7 +60,7 @@ Text('delete_payment_method_confirm'.tr(namedArgs: {'name': methodName}))
 
 ### Using Type-Safe Keys (Recommended)
 ```dart
-import 'package:masrofy/core/locale_keys.g.dart';
+import 'package:planner/core/locale_keys.g.dart';
 
 Text(LocaleKeys.settings.tr())
 ```

@@ -25,12 +25,38 @@ class AppColors {
   static const Color expenseSecondary = Color(0xFFF472B6);
 
   // Gradients
-  static const List<Color> primaryGradient = [Color(0xFFF08010), Color(0xFFFFB347)];
-  static const List<Color> earningsGradient = [Color(0xFF6366F1), Color(0xFF8B5CF6)];
-  static const List<Color> collectedGradient = [Color(0xFF10B981), Color(0xFF34D399)];
-  static const List<Color> pendingGradient = [Color(0xFFF59E0B), Color(0xFFFBBF24)];
-  static const List<Color> expenseGradient = [Color(0xFFEC4899), Color(0xFFF472B6)];
-  static const List<Color> drawerGradient = [Color(0xFF1E293B), Color(0xFF334155)];
+  static const List<Color> primaryGradient = [
+    Color(0xFFF08010),
+    Color(0xFFFFB347),
+  ];
+  static const List<Color> earningsGradient = [
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+  ];
+  static const List<Color> collectedGradient = [
+    Color(0xFF10B981),
+    Color(0xFF34D399),
+  ];
+  static const List<Color> pendingGradient = [
+    Color(0xFFF59E0B),
+    Color(0xFFFBBF24),
+  ];
+  static const List<Color> expenseGradient = [
+    Color(0xFFEC4899),
+    Color(0xFFF472B6),
+  ];
+  static const List<Color> incomeGradient = [
+    Color(0xFF10B981),
+    Color(0xFF34D399),
+  ];
+  static const List<Color> netBalanceGradient = [
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+  ];
+  static const List<Color> drawerGradient = [
+    Color(0xFF1E293B),
+    Color(0xFF334155),
+  ];
 
   // Surfaces (light)
   static const Color surface = Color(0xFFFFFFFF);
@@ -38,19 +64,48 @@ class AppColors {
   static const Color cardBorder = Color(0xFFE2E8F0);
 
   // Surfaces (dark)
-  static const Color surfaceDark = Color(0xFF1C1C1E);
-  static const Color surfaceDarkAlt = Color(0xFF2C2C2E);
+  static const Color surfaceDark = Color(0xFF000000);
+  static const Color surfaceDarkAlt = Color(0xFF1C1C1E);
+  static const Color cardDark = Color(0xFF2C2C2E);
   static const Color cardBorderDark = Color(0xFF3A3A3C);
 
   // Category palette (for expense categories)
   static const List<Color> categoryPalette = [
-    Color(0xFF6366F1), Color(0xFF8B5CF6), Color(0xFFEC4899),
-    Color(0xFFEF4444), Color(0xFFF59E0B), Color(0xFF10B981),
-    Color(0xFF14B8A6), Color(0xFF3B82F6), Color(0xFF06B6D4),
-    Color(0xFF84CC16), Color(0xFFF97316), Color(0xFF64748B),
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFEF4444),
+    Color(0xFFF59E0B),
+    Color(0xFF10B981),
+    Color(0xFF14B8A6),
+    Color(0xFF3B82F6),
+    Color(0xFF06B6D4),
+    Color(0xFF84CC16),
+    Color(0xFFF97316),
+    Color(0xFF64748B),
   ];
 
   static Color shadowColor(Color base, {double alpha = 0.15}) =>
       base.withValues(alpha: alpha);
-}
 
+  static bool isDark(BuildContext context) =>
+      CupertinoTheme.brightnessOf(context) == Brightness.dark;
+
+  static Color cardBackground(BuildContext context) => isDark(context)
+      ? cardDark
+      : CupertinoColors.systemBackground.resolveFrom(context);
+
+  static Color elevatedBackground(BuildContext context) => isDark(context)
+      ? surfaceDarkAlt
+      : CupertinoColors.systemGrey6.resolveFrom(context);
+
+  static Color separator(BuildContext context) => isDark(context)
+      ? cardBorderDark
+      : CupertinoColors.separator.resolveFrom(context);
+
+  static Color secondaryLabel(BuildContext context) =>
+      CupertinoColors.secondaryLabel.resolveFrom(context);
+
+  static Color cardShadow(BuildContext context) =>
+      CupertinoColors.black.withValues(alpha: isDark(context) ? 0.35 : 0.06);
+}

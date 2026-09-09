@@ -12,34 +12,33 @@ TextStyle _t({
   required Color color,
   double fontSize = 17,
   FontWeight fontWeight = FontWeight.w400,
-}) =>
-    TextStyle(
-      fontFamily: _fontFamily,
-      inherit: false,
-      color: color,
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      decoration: TextDecoration.none,
-      textBaseline: TextBaseline.alphabetic,
-    );
+}) => TextStyle(
+  fontFamily: _fontFamily,
+  inherit: false,
+  color: color,
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  decoration: TextDecoration.none,
+  textBaseline: TextBaseline.alphabetic,
+);
 
 class AppThems {
   static CupertinoThemeData lightTheme() {
     return CupertinoThemeData(
       textTheme: CupertinoTextThemeData(
-        textStyle: _t(color: Colors.black),
+        textStyle: _t(color: const Color(0xFF111827)),
         dateTimePickerTextStyle: _t(
-          color: Colors.black,
+          color: const Color(0xFF111827),
           fontWeight: FontWeight.bold,
           fontSize: 16,
         ),
         pickerTextStyle: _t(
-          color: Colors.black,
+          color: const Color(0xFF111827),
           fontWeight: FontWeight.bold,
           fontSize: 17,
         ),
         navTitleTextStyle: _t(
-          color: Colors.black,
+          color: const Color(0xFF111827),
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
@@ -53,9 +52,12 @@ class AppThems {
           fontWeight: FontWeight.bold,
           fontSize: 16,
         ),
+        tabLabelTextStyle: _t(color: const Color(0xFF6B7280), fontSize: 10),
       ),
       primaryColor: AppColors.primaryColor,
-      scaffoldBackgroundColor: Colors.white,
+      primaryContrastingColor: Colors.white,
+      barBackgroundColor: const Color(0xFFF9FAFB),
+      scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       brightness: Brightness.light,
       applyThemeToAll: true,
     );
@@ -64,35 +66,38 @@ class AppThems {
   static CupertinoThemeData darkTheme() {
     return CupertinoThemeData(
       textTheme: CupertinoTextThemeData(
-        textStyle: _t(color: Colors.white),
+        textStyle: _t(color: const Color(0xFFF5F5F7)),
         dateTimePickerTextStyle: _t(
-          color: Colors.white,
+          color: const Color(0xFFF5F5F7),
           fontWeight: FontWeight.bold,
           fontSize: 16,
         ),
         pickerTextStyle: _t(
-          color: Colors.white,
+          color: const Color(0xFFF5F5F7),
           fontWeight: FontWeight.bold,
           fontSize: 17,
         ),
         navTitleTextStyle: _t(
-          color: Colors.white,
+          color: const Color(0xFFF5F5F7),
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
         navActionTextStyle: _t(
-          color: AppColors.primaryColor,
+          color: AppColors.primaryLight,
           fontWeight: FontWeight.bold,
           fontSize: 16,
         ),
         actionTextStyle: _t(
-          color: AppColors.primaryColor,
+          color: AppColors.primaryLight,
           fontWeight: FontWeight.bold,
           fontSize: 16,
         ),
+        tabLabelTextStyle: _t(color: const Color(0xFF8E8E93), fontSize: 10),
       ),
       primaryColor: AppColors.primaryColor,
-      scaffoldBackgroundColor: const Color(0xFF1C1C1E),
+      primaryContrastingColor: Colors.white,
+      barBackgroundColor: const Color(0xFF1C1C1E),
+      scaffoldBackgroundColor: AppColors.surfaceDark,
       brightness: Brightness.dark,
       applyThemeToAll: true,
     );

@@ -41,34 +41,33 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyB5q_iiQpsDQeMIaOfLeFjPEevKCsL7VG4',
-    appId: '1:347456717704:web:2bc7db9fcd9da802fdb03d',
+    apiKey: 'AIzaSyDOZERNViOwse_3FEIFyDcQ01KY617b3ok',
+    appId: '1:347456717704:web:44206596d94a6c11fdb03d',
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     authDomain: 'masrofy-app.firebaseapp.com',
     storageBucket: 'masrofy-app.firebasestorage.app',
+    measurementId: 'G-SC1EFF9RCW',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCIoTHvdA8FMJZBNT3wVy1QmnRwaVZsLQg',
-    appId: '1:347456717704:android:c9d8c78dfcf5297efdb03d',
+    appId: '1:347456717704:android:a8e667041dbf25a7fdb03d',
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     storageBucket: 'masrofy-app.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBYXWLmBzdCM-jXpl3wF9TgOpauW5ge48k',
-    appId: '1:347456717704:ios:f338482ab672c9d2fdb03d',
+    appId: '1:347456717704:ios:2a3005d5cd85db97fdb03d',
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     storageBucket: 'masrofy-app.firebasestorage.app',
     iosBundleId: 'com.hany.smartplanner',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBYXWLmBzdCM-jXpl3wF9TgOpauW5ge48k',
-    appId: '1:347456717704:ios:f338482ab672c9d2fdb03d',
+    appId: '1:347456717704:ios:2a3005d5cd85db97fdb03d',
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     storageBucket: 'masrofy-app.firebasestorage.app',
@@ -76,11 +75,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyB5q_iiQpsDQeMIaOfLeFjPEevKCsL7VG4',
-    appId: '1:347456717704:web:df4327008445a105fdb03d',
+    apiKey: 'AIzaSyDOZERNViOwse_3FEIFyDcQ01KY617b3ok',
+    appId: '1:347456717704:web:b3bd28d890d1d759fdb03d',
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     authDomain: 'masrofy-app.firebaseapp.com',
     storageBucket: 'masrofy-app.firebasestorage.app',
+    measurementId: 'G-GJEZXEE5F4',
   );
 }

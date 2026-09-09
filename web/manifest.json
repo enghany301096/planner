@@ -1,6 +1,6 @@
 {
-    "name": "masrofy",
-    "short_name": "masrofy",
+    "name": "Planner",
+    "short_name": "Planner",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",

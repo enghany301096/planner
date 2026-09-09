@@ -1,9 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:planner/providers/settings_provider.dart';
+import 'package:provider/provider.dart';
 import '../../../models/expense.dart';
 import '../../../models/expense_category.dart';
 import '../../../models/payment_method.dart';
-import 'package:masrofy/screens/expenses/expense_categories_screen.dart';
+import 'package:planner/screens/expenses/expense_categories_screen.dart';
 
 class ExpenseCard extends StatelessWidget {
   final Expense expense;
@@ -23,8 +25,9 @@ class ExpenseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryColor =
-        category != null ? Color(category!.color) : const Color(0xFF64748B);
+    final categoryColor = category != null
+        ? Color(category!.color)
+        : const Color(0xFF64748B);
     final dateStr = DateFormat.MMMd().format(expense.date);
     final isFromTask = expense.taskId != null;
 
@@ -102,10 +105,13 @@ class ExpenseCard extends StatelessWidget {
                           Container(
                             margin: const EdgeInsets.only(left: 6),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: CupertinoColors.activeBlue
-                                  .withValues(alpha: 0.1),
+                              color: CupertinoColors.activeBlue.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -151,7 +157,10 @@ class ExpenseCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${expense.currency} ${expense.amount.toStringAsFixed(2)}',
+                    context.watch<SettingsProvider>().formatMoney(
+                      expense.amount,
+                      expense.currency,
+                    ),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,

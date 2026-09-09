@@ -7,6 +7,7 @@ class PaymentMethod {
   final int icon;
   final PaymentMethodType type;
   final String? cardNumber;
+  final double startingBalance;
 
   PaymentMethod({
     required this.id,
@@ -15,6 +16,7 @@ class PaymentMethod {
     required this.icon,
     this.type = PaymentMethodType.cash,
     this.cardNumber,
+    this.startingBalance = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -25,6 +27,7 @@ class PaymentMethod {
       'icon': icon,
       'type': type.name,
       'cardNumber': cardNumber,
+      'startingBalance': startingBalance,
     };
   }
 
@@ -41,6 +44,7 @@ class PaymentMethod {
             )
           : PaymentMethodType.cash,
       cardNumber: map['cardNumber'],
+      startingBalance: (map['startingBalance'] as num?)?.toDouble() ?? 0,
     );
   }
 }

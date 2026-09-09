@@ -5,10 +5,7 @@ class SpeechParser {
   static Map<String, dynamic> parse(String text) {
     final cleanText = text.trim();
     if (cleanText.isEmpty) {
-      return {
-        'taskName': '',
-        'subtasks': <String>[],
-      };
+      return {'taskName': '', 'subtasks': <String>[]};
     }
 
     // List of markers that separate the task name from subtasks
@@ -58,7 +55,9 @@ class SpeechParser {
       // Split by common delimiters
       // English: ',', 'and', 'then'
       // Arabic: '،', 'و', 'ثم'
-      final rawSubtasks = subtasksPart.split(RegExp(r'(?:,|،|\band\b|\bthen\b|\bثم\b|\bو\b)'));
+      final rawSubtasks = subtasksPart.split(
+        RegExp(r'(?:,|،|\band\b|\bthen\b|\bثم\b|\bو\b)'),
+      );
       for (final raw in rawSubtasks) {
         final cleaned = raw.trim();
         // Remove trailing punctuation or extra spaces

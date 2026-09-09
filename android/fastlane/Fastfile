@@ -4,10 +4,10 @@ platform :android do
   desc "Build Flutter AppBundle (AAB) for release"
   lane :build_aab_release do
     UI.message("Cleaning Flutter project...")
-    sh "flutter clean"
+    sh "fvm flutter clean"
 
     UI.message("Building Flutter AAB for release...")
-    sh "flutter build appbundle"
+    sh "fvm flutter build appbundle"
 
     UI.success("AAB built successfully at: build/app/outputs/bundle/release/app-release.aab 🎉")
   end

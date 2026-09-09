@@ -13,15 +13,14 @@ class BiometricService {
           canAuthenticateWithBiometrics || await auth.isDeviceSupported();
 
       if (!canAuthenticate) {
-        return true; // If device doesn't support, we might fallback or just allow (depending on requirements, here allowing for simple dev flow)
+        return false;
       }
 
-      final bool didAuthenticate = await auth.authenticate(
-        localizedReason: 'Please authenticate to access Masrofy',
-        biometricOnly: true, // Force biometrics
+      return await auth.authenticate(
+        localizedReason: 'Please authenticate to access Smart Planner',
+        biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
-      return didAuthenticate;
     } on PlatformException catch (e) {
       log("Biometric Error: $e");
       return false;

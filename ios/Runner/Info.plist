@@ -6,6 +6,10 @@
 	<string>This app requires microphone access to record tasks using your voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>This app requires speech recognition access to transcribe spoken tasks and subtasks.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Smart Planner uses Face ID to protect your projects and finances.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Smart Planner uses your photo library to attach project cover images.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -17,7 +21,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>masrofy</string>
+	<string>Smart Planner</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

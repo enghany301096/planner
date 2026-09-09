@@ -19,18 +19,15 @@ class CurrencyService {
       if (response.statusCode == HttpStatus.ok) {
         final responseBody = await response.transform(utf8.decoder).join();
         final Map<String, dynamic> data = jsonDecode(responseBody);
-        
+
         if (data['result'] == 'success' && data.containsKey('rates')) {
           final rates = data['rates'] as Map<String, dynamic>;
-          
+
           final double egpRate = (rates['EGP'] as num?)?.toDouble() ?? 0.0;
           final double sarRate = (rates['SAR'] as num?)?.toDouble() ?? 0.0;
 
           if (egpRate > 0.0 && sarRate > 0.0) {
-            return {
-              'EGP': egpRate,
-              'SAR': sarRate,
-            };
+            return {'EGP': egpRate, 'SAR': sarRate};
           }
         }
       } else {

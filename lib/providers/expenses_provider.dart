@@ -16,8 +16,7 @@ class ExpensesProvider with ChangeNotifier {
   List<Expense> get expenses => _expenses;
   bool get isLoaded => _isLoaded;
 
-  double get totalExpenses =>
-      _expenses.fold(0.0, (sum, e) => sum + e.amount);
+  double get totalExpenses => _expenses.fold(0.0, (sum, e) => sum + e.amount);
 
   List<Expense> recentExpenses([int count = 5]) =>
       _expenses.take(count).toList();
@@ -126,13 +125,17 @@ class ExpensesProvider with ChangeNotifier {
     }
   }
 
-  Future<void> deleteCategory(String id) async {
+  Future<bool> deleteCategory(String id) async {
     try {
+      final used = await DatabaseHelper.instance.countExpensesByCategory(id);
+      if (used > 0) return false;
       await DatabaseHelper.instance.deleteExpenseCategory(id);
       _categories.removeWhere((c) => c.id == id);
       notifyListeners();
+      return true;
     } catch (e) {
       log('ExpensesProvider deleteCategory error: $e');
+      return false;
     }
   }
 

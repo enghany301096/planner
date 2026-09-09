@@ -2,14 +2,16 @@
 
 // ignore_for_file: constant_identifier_names
 
-abstract class  LocaleKeys {
+abstract class LocaleKeys {
   static const appName = 'appName';
   static const settings = 'settings';
   static const language = 'language';
   static const english = 'english';
   static const arabic = 'arabic';
-  static const biometricAuth = 'biometricAuth';
-  static const enableBiometric = 'enableBiometric';
+  static const lockApp = 'lockApp';
+  static const lockAppSubtitle = 'lockAppSubtitle';
+  static const hideAmounts = 'hideAmounts';
+  static const hideAmountsSubtitle = 'hideAmountsSubtitle';
   static const manageCategories = 'manageCategories';
   static const manageCategoriesSubtitle = 'manageCategoriesSubtitle';
   static const paymentMethods = 'paymentMethods';
@@ -34,5 +36,4 @@ abstract class  LocaleKeys {
   static const wallet = 'wallet';
   static const reports = 'reports';
   static const home = 'home';
-
 }

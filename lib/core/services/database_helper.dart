@@ -1,8 +1,12 @@
 import 'dart:developer';
+import 'dart:io';
 
-import 'package:masrofy/models/expense.dart';
-import 'package:masrofy/models/expense_category.dart';
-import 'package:masrofy/models/payment_method.dart';
+import 'package:planner/models/expense.dart';
+import 'package:planner/models/expense_category.dart';
+import 'package:planner/models/income.dart';
+import 'package:planner/models/income_category.dart';
+import 'package:planner/models/payment_method.dart';
+import 'package:planner/models/project_member.dart';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -12,26 +16,43 @@ import '../../models/project_task.dart';
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static const dbFileName = 'planner.db';
+  static const legacyDbFileName = 'masrofy.db';
 
   DatabaseHelper._init();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('masrofy.db');
+    _database = await _initDB();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
+  Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+    final path = await resolveDbPath(dbPath);
 
     return await openDatabase(
       path,
-
-      version: 18,
+      version: 21,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
+  }
+
+  static Future<String> resolveDbPath(String directory) async {
+    final path = join(directory, dbFileName);
+    if (await File(path).exists()) return path;
+    final legacy = File(join(directory, legacyDbFileName));
+    if (await legacy.exists()) {
+      await legacy.copy(path);
+      for (final suffix in ['-wal', '-shm']) {
+        final extra = File('${legacy.path}$suffix');
+        if (await extra.exists()) {
+          await extra.copy('$path$suffix');
+        }
+      }
+    }
+    return path;
   }
 
   Future _createDB(Database db, int version) async {
@@ -48,7 +69,8 @@ CREATE TABLE payment_methods (
   color $integerType,
   icon $integerType,
   type $textNullable,
-  cardNumber $textNullable
+  cardNumber $textNullable,
+  startingBalance REAL DEFAULT 0
 )
 ''');
 
@@ -59,7 +81,10 @@ CREATE TABLE projects (
   description $textNullable,
   endDate $textNullable,
   status $textType,
-  imagePath $textNullable
+  imagePath $textNullable,
+  customer $textNullable,
+  coverType TEXT DEFAULT 'image',
+  icon INTEGER
 )
 ''');
 
@@ -94,6 +119,28 @@ CREATE TABLE tasks (
 ''');
 
     await db.execute('''
+CREATE TABLE project_members (
+  id $idType,
+  projectId $textType,
+  name $textType,
+  phone $textNullable,
+  email $textNullable,
+  color $integerType,
+  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
+)
+''');
+
+    await db.execute('''
+CREATE TABLE task_assignees (
+  taskId TEXT NOT NULL,
+  memberId TEXT NOT NULL,
+  PRIMARY KEY (taskId, memberId),
+  FOREIGN KEY (taskId) REFERENCES tasks (id) ON DELETE CASCADE,
+  FOREIGN KEY (memberId) REFERENCES project_members (id) ON DELETE CASCADE
+)
+''');
+
+    await db.execute('''
 CREATE TABLE expense_categories (
   id $idType,
   name $textType,
@@ -115,6 +162,33 @@ CREATE TABLE expenses (
   taskId $textNullable,
   currency $textType,
   FOREIGN KEY (categoryId) REFERENCES expense_categories (id),
+  FOREIGN KEY (paymentMethodId) REFERENCES payment_methods (id),
+  FOREIGN KEY (taskId) REFERENCES tasks (id) ON DELETE SET NULL
+)
+''');
+
+    await db.execute('''
+CREATE TABLE income_categories (
+  id $idType,
+  name $textType,
+  color $integerType,
+  icon $integerType,
+  isDefault INTEGER DEFAULT 0
+)
+''');
+
+    await db.execute('''
+CREATE TABLE incomes (
+  id $idType,
+  title TEXT,
+  amount $realType,
+  date $textType,
+  categoryId $textType,
+  note $textNullable,
+  paymentMethodId $textNullable,
+  taskId $textNullable,
+  currency TEXT,
+  FOREIGN KEY (categoryId) REFERENCES income_categories (id),
   FOREIGN KEY (paymentMethodId) REFERENCES payment_methods (id),
   FOREIGN KEY (taskId) REFERENCES tasks (id) ON DELETE SET NULL
 )
@@ -337,6 +411,108 @@ CREATE TABLE tasks (
         log('Migration Error v18: $e');
       }
     }
+
+    if (oldVersion < 19) {
+      try {
+        await db.execute('ALTER TABLE projects ADD COLUMN imagePath TEXT');
+      } catch (e) {
+        log('Migration Error v19 imagePath: $e');
+      }
+      try {
+        await db.execute(
+          "UPDATE tasks SET status = 'toDo' WHERE status = 'todo'",
+        );
+      } catch (e) {
+        log('Migration Error v19 status: $e');
+      }
+      try {
+        await db.execute(
+          'ALTER TABLE payment_methods ADD COLUMN startingBalance REAL DEFAULT 0',
+        );
+      } catch (e) {
+        log('Migration Error v19 startingBalance: $e');
+      }
+      try {
+        await db.execute(
+          "ALTER TABLE incomes ADD COLUMN title TEXT DEFAULT ''",
+        );
+        await db.execute('ALTER TABLE incomes ADD COLUMN paymentMethodId TEXT');
+        await db.execute('ALTER TABLE incomes ADD COLUMN taskId TEXT');
+        await db.execute(
+          "ALTER TABLE incomes ADD COLUMN currency TEXT DEFAULT 'EGP'",
+        );
+        await db.execute(
+          'ALTER TABLE income_categories ADD COLUMN isDefault INTEGER DEFAULT 0',
+        );
+      } catch (e) {
+        log('Migration Error v19 income columns: $e');
+      }
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS income_categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            color INTEGER NOT NULL,
+            icon INTEGER NOT NULL,
+            isDefault INTEGER DEFAULT 0
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS incomes (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL,
+            categoryId TEXT NOT NULL,
+            note TEXT,
+            paymentMethodId TEXT,
+            taskId TEXT,
+            currency TEXT
+          )
+        ''');
+      } catch (e) {
+        log('Migration Error v19 income tables: $e');
+      }
+    }
+
+    if (oldVersion < 20) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS project_members (
+            id TEXT PRIMARY KEY,
+            projectId TEXT NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            color INTEGER NOT NULL,
+            FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS task_assignees (
+            taskId TEXT NOT NULL,
+            memberId TEXT NOT NULL,
+            PRIMARY KEY (taskId, memberId),
+            FOREIGN KEY (taskId) REFERENCES tasks (id) ON DELETE CASCADE,
+            FOREIGN KEY (memberId) REFERENCES project_members (id) ON DELETE CASCADE
+          )
+        ''');
+      } catch (e) {
+        log('Migration Error v20 members: $e');
+      }
+    }
+
+    if (oldVersion < 21) {
+      try {
+        await db.execute('ALTER TABLE projects ADD COLUMN customer TEXT');
+        await db.execute(
+          "ALTER TABLE projects ADD COLUMN coverType TEXT DEFAULT 'image'",
+        );
+        await db.execute('ALTER TABLE projects ADD COLUMN icon INTEGER');
+      } catch (e) {
+        log('Migration Error v21 project cover/customer: $e');
+      }
+    }
   }
 
   Future<void> close() async {
@@ -348,7 +524,7 @@ CREATE TABLE tasks (
 
   Future<void> resetDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'masrofy.db');
+    final path = join(dbPath, dbFileName);
     await close();
     await deleteDatabase(path);
   }
@@ -394,7 +570,20 @@ CREATE TABLE tasks (
 
   Future<int> deleteProject(String id) async {
     final db = await instance.database;
-    // Also delete associated tasks
+    final tasks = await db.query(
+      'tasks',
+      columns: ['id'],
+      where: 'projectId = ?',
+      whereArgs: [id],
+    );
+    for (final row in tasks) {
+      await db.delete(
+        'task_assignees',
+        where: 'taskId = ?',
+        whereArgs: [row['id']],
+      );
+    }
+    await db.delete('project_members', where: 'projectId = ?', whereArgs: [id]);
     await db.delete('tasks', where: 'projectId = ?', whereArgs: [id]);
     return await db.delete('projects', where: 'id = ?', whereArgs: [id]);
   }
@@ -422,11 +611,22 @@ CREATE TABLE tasks (
       where: 'projectId = ?',
       whereArgs: [projectId],
     );
-    return result.map((json) => ProjectTask.fromMap(json)).toList();
+    final assigneeMap = await _assigneesByTaskIds(
+      result.map((r) => r['id'] as String).toList(),
+    );
+    return result
+        .map(
+          (json) => ProjectTask.fromMap(
+            json,
+            assigneeIds: assigneeMap[json['id']] ?? const [],
+          ),
+        )
+        .toList();
   }
 
   Future<int> deleteTask(String id) async {
     final db = await instance.database;
+    await db.delete('task_assignees', where: 'taskId = ?', whereArgs: [id]);
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -443,19 +643,103 @@ CREATE TABLE tasks (
   Future<List<ProjectTask>> getAllTasks() async {
     final db = await instance.database;
     final result = await db.query('tasks');
-    return result.map((json) => ProjectTask.fromMap(json)).toList();
+    final assigneeMap = await _assigneesByTaskIds(
+      result.map((r) => r['id'] as String).toList(),
+    );
+    return result
+        .map(
+          (json) => ProjectTask.fromMap(
+            json,
+            assigneeIds: assigneeMap[json['id']] ?? const [],
+          ),
+        )
+        .toList();
+  }
+
+  Future<Map<String, List<String>>> _assigneesByTaskIds(
+    List<String> taskIds,
+  ) async {
+    if (taskIds.isEmpty) return {};
+    final db = await instance.database;
+    final placeholders = List.filled(taskIds.length, '?').join(',');
+    final rows = await db.rawQuery(
+      'SELECT taskId, memberId FROM task_assignees WHERE taskId IN ($placeholders)',
+      taskIds,
+    );
+    final map = <String, List<String>>{};
+    for (final row in rows) {
+      final taskId = row['taskId'] as String;
+      map.putIfAbsent(taskId, () => []).add(row['memberId'] as String);
+    }
+    return map;
+  }
+
+  Future<void> setTaskAssignees(String taskId, List<String> memberIds) async {
+    final db = await instance.database;
+    await db.delete('task_assignees', where: 'taskId = ?', whereArgs: [taskId]);
+    for (final memberId in memberIds.toSet()) {
+      await db.insert('task_assignees', {
+        'taskId': taskId,
+        'memberId': memberId,
+      });
+    }
+  }
+
+  // Project members CRUD
+  Future<int> insertProjectMember(ProjectMember member) async {
+    final db = await instance.database;
+    return await db.insert('project_members', member.toMap());
+  }
+
+  Future<List<ProjectMember>> getProjectMembers(String projectId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'project_members',
+      where: 'projectId = ?',
+      whereArgs: [projectId],
+      orderBy: 'name ASC',
+    );
+    return result.map(ProjectMember.fromMap).toList();
+  }
+
+  Future<List<ProjectMember>> getAllProjectMembers() async {
+    final db = await instance.database;
+    final result = await db.query('project_members', orderBy: 'name ASC');
+    return result.map(ProjectMember.fromMap).toList();
+  }
+
+  Future<int> updateProjectMember(ProjectMember member) async {
+    final db = await instance.database;
+    return await db.update(
+      'project_members',
+      member.toMap(),
+      where: 'id = ?',
+      whereArgs: [member.id],
+    );
+  }
+
+  Future<int> deleteProjectMember(String id) async {
+    final db = await instance.database;
+    await db.delete('task_assignees', where: 'memberId = ?', whereArgs: [id]);
+    return await db.delete('project_members', where: 'id = ?', whereArgs: [id]);
   }
 
   // Expense Categories CRUD
   Future<int> insertExpenseCategory(ExpenseCategory category) async {
     final db = await instance.database;
-    return await db.insert('expense_categories', category.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.ignore);
+    return await db.insert(
+      'expense_categories',
+      category.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   Future<List<ExpenseCategory>> getExpenseCategories() async {
     final db = await instance.database;
-    final result = await db.query('expense_categories', orderBy: 'isDefault DESC, name ASC');
+    final result = await db.query(
+      'expense_categories',
+      orderBy: 'isDefault DESC, name ASC',
+    );
     return result.map((json) => ExpenseCategory.fromMap(json)).toList();
   }
 
@@ -471,7 +755,11 @@ CREATE TABLE tasks (
 
   Future<int> deleteExpenseCategory(String id) async {
     final db = await instance.database;
-    return await db.delete('expense_categories', where: 'id = ?', whereArgs: [id]);
+    return await db.delete(
+      'expense_categories',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Expenses CRUD
@@ -527,5 +815,122 @@ CREATE TABLE tasks (
   Future<void> deleteExpenseByTaskId(String taskId) async {
     final db = await instance.database;
     await db.delete('expenses', where: 'taskId = ?', whereArgs: [taskId]);
+  }
+
+  Future<int> countExpensesByCategory(String categoryId) async {
+    final db = await instance.database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as c FROM expenses WHERE categoryId = ?',
+      [categoryId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> countUsagesOfPaymentMethod(String paymentMethodId) async {
+    final db = await instance.database;
+    final expenses = await db.rawQuery(
+      'SELECT COUNT(*) as c FROM expenses WHERE paymentMethodId = ?',
+      [paymentMethodId],
+    );
+    final tasks = await db.rawQuery(
+      'SELECT COUNT(*) as c FROM tasks WHERE paymentMethodId = ?',
+      [paymentMethodId],
+    );
+    final incomes = await db.rawQuery(
+      'SELECT COUNT(*) as c FROM incomes WHERE paymentMethodId = ?',
+      [paymentMethodId],
+    );
+    return (Sqflite.firstIntValue(expenses) ?? 0) +
+        (Sqflite.firstIntValue(tasks) ?? 0) +
+        (Sqflite.firstIntValue(incomes) ?? 0);
+  }
+
+  Future<int> insertIncomeCategory(IncomeCategory category) async {
+    final db = await instance.database;
+    return await db.insert(
+      'income_categories',
+      category.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  Future<List<IncomeCategory>> getIncomeCategories() async {
+    final db = await instance.database;
+    final result = await db.query(
+      'income_categories',
+      orderBy: 'isDefault DESC, name ASC',
+    );
+    return result.map((json) => IncomeCategory.fromMap(json)).toList();
+  }
+
+  Future<int> updateIncomeCategory(IncomeCategory category) async {
+    final db = await instance.database;
+    return await db.update(
+      'income_categories',
+      category.toMap(),
+      where: 'id = ?',
+      whereArgs: [category.id],
+    );
+  }
+
+  Future<int> deleteIncomeCategory(String id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'income_categories',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> countIncomesByCategory(String categoryId) async {
+    final db = await instance.database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as c FROM incomes WHERE categoryId = ?',
+      [categoryId],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  Future<int> insertIncome(Income income) async {
+    final db = await instance.database;
+    return await db.insert('incomes', income.toMap());
+  }
+
+  Future<List<Income>> getIncomes() async {
+    final db = await instance.database;
+    final result = await db.query('incomes', orderBy: 'date DESC');
+    return result.map((json) => Income.fromMap(json)).toList();
+  }
+
+  Future<Income?> getIncomeByTaskId(String taskId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'incomes',
+      where: 'taskId = ?',
+      whereArgs: [taskId],
+      limit: 1,
+    );
+    if (result.isEmpty) return null;
+    return Income.fromMap(result.first);
+  }
+
+  Future<int> updateIncome(Income income) async {
+    final db = await instance.database;
+    return await db.update(
+      'incomes',
+      income.toMap(),
+      where: 'id = ?',
+      whereArgs: [income.id],
+    );
+  }
+
+  Future<int> deleteIncome(String id) async {
+    final db = await instance.database;
+    return await db.delete('incomes', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteIncomeByTaskId(String taskId) async {
+    final db = await instance.database;
+    await db.delete('incomes', where: 'taskId = ?', whereArgs: [taskId]);
   }
 }

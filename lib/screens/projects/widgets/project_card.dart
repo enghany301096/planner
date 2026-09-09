@@ -1,13 +1,21 @@
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:masrofy/models/project.dart';
+import 'package:planner/core/utils/app_colors.dart';
+import 'package:planner/core/utils/icon_utils.dart';
+import 'package:planner/models/project.dart';
 
 class ProjectCard extends StatelessWidget {
   final Project project;
   final VoidCallback onTap;
 
   const ProjectCard({super.key, required this.project, required this.onTap});
+
+  static const _coverSize = 80.0;
+  static const _coverRadius = BorderRadius.only(
+    topLeft: Radius.circular(12),
+    bottomLeft: Radius.circular(12),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +24,7 @@ class ProjectCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground,
+          color: CupertinoColors.systemBackground.resolveFrom(context),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -28,54 +36,7 @@ class ProjectCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Project Image
-            if (project.imagePath != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
-                ),
-                child: Image.file(
-                  File(project.imagePath!),
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, e, s) {
-                    return Container(
-                      width: 80,
-                      height: 80,
-                      color: CupertinoColors.systemGrey6,
-                      child: const Center(
-                        child: FaIcon(
-                          FontAwesomeIcons.image,
-                          // size: 30,s
-                          color: CupertinoColors.systemGrey,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              )
-            else
-              Container(
-                width: 100,
-                height: 100,
-                decoration: const BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                  ),
-                ),
-                child: const Center(
-                  child: FaIcon(
-                    FontAwesomeIcons.briefcase,
-                    size: 30,
-                    color: CupertinoColors.systemGrey,
-                  ),
-                ),
-              ),
-            // Project Details
+            _cover(context),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -87,6 +48,21 @@ class ProjectCard extends StatelessWidget {
                       style: CupertinoTheme.of(context).textTheme.textStyle
                           .copyWith(fontWeight: FontWeight.bold, fontSize: 18),
                     ),
+                    if (project.customer != null &&
+                        project.customer!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          project.customer!,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     if (project.description.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4.0),
@@ -105,6 +81,64 @@ class ProjectCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cover(BuildContext context) {
+    if (project.usesIconCover) {
+      return Container(
+        width: _coverSize,
+        height: _coverSize,
+        decoration: const BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: _coverRadius,
+        ),
+        child: Center(
+          child: FaIcon(
+            IconUtils.getIconData(project.icon ?? 0xe19f),
+            color: CupertinoColors.white,
+            size: 28,
+          ),
+        ),
+      );
+    }
+
+    if (project.imagePath != null) {
+      final px = (_coverSize * MediaQuery.devicePixelRatioOf(context)).round();
+      return ClipRRect(
+        borderRadius: _coverRadius,
+        child: Image.file(
+          File(project.imagePath!),
+          width: _coverSize,
+          height: _coverSize,
+          cacheWidth: px,
+          cacheHeight: px,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          fit: BoxFit.cover,
+          errorBuilder: (_, e, s) => _placeholder(),
+        ),
+      );
+    }
+
+    return _placeholder();
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: _coverSize,
+      height: _coverSize,
+      decoration: const BoxDecoration(
+        color: CupertinoColors.systemGrey6,
+        borderRadius: _coverRadius,
+      ),
+      child: const Center(
+        child: FaIcon(
+          FontAwesomeIcons.briefcase,
+          size: 30,
+          color: CupertinoColors.systemGrey,
         ),
       ),
     );

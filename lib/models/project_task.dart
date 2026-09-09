@@ -26,6 +26,13 @@ class ProjectTask {
   final double estimatedTime;
   final double hourlyRate;
 
+  /// Member IDs tagged on this task (runtime; persisted in task_assignees).
+  final List<String> assigneeIds;
+
+  bool get isDone => isCompleted || status == 'done';
+
+  bool get canArchive => isDone && isPaid && !isArchived;
+
   ProjectTask({
     required this.id,
     required this.projectId,
@@ -37,7 +44,7 @@ class ProjectTask {
     required this.cost,
     this.currency = 'USD',
     this.isCompleted = false,
-    this.status = 'todo',
+    this.status = 'toDo',
     this.type = 'newFeature',
     this.subTasks = const [],
     this.isPaid = false,
@@ -50,6 +57,7 @@ class ProjectTask {
     this.estimatedTime = 0.0,
     this.hourlyRate = 0.0,
     this.isArchived = false,
+    this.assigneeIds = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -80,7 +88,10 @@ class ProjectTask {
     };
   }
 
-  factory ProjectTask.fromMap(Map<String, dynamic> map) {
+  factory ProjectTask.fromMap(
+    Map<String, dynamic> map, {
+    List<String> assigneeIds = const [],
+  }) {
     return ProjectTask(
       id: map['id'],
       projectId: map['projectId'],
@@ -92,7 +103,7 @@ class ProjectTask {
       cost: map['cost'],
       currency: map['currency'] ?? 'USD',
       isCompleted: map['isCompleted'] == 1,
-      status: map['status'] ?? 'todo',
+      status: _normalizeStatus(map['status']),
       type: map['type'] ?? 'newFeature',
       subTasks: List<Map<String, dynamic>>.from(
         jsonDecode(map['subTasks'] ?? '[]'),
@@ -113,7 +124,13 @@ class ProjectTask {
       estimatedTime: map['estimatedTime'] ?? 0.0,
       hourlyRate: map['hourlyRate'] ?? 0.0,
       isArchived: map['isArchived'] == 1,
+      assigneeIds: assigneeIds,
     );
+  }
+
+  static String _normalizeStatus(dynamic raw) {
+    final status = raw?.toString() ?? 'toDo';
+    return status == 'todo' ? 'toDo' : status;
   }
 
   ProjectTask copyWith({
@@ -140,6 +157,7 @@ class ProjectTask {
     double? estimatedTime,
     double? hourlyRate,
     bool? isArchived,
+    List<String>? assigneeIds,
   }) {
     return ProjectTask(
       id: id ?? this.id,
@@ -165,6 +183,7 @@ class ProjectTask {
       estimatedTime: estimatedTime ?? this.estimatedTime,
       hourlyRate: hourlyRate ?? this.hourlyRate,
       isArchived: isArchived ?? this.isArchived,
+      assigneeIds: assigneeIds ?? this.assigneeIds,
     );
   }
 }

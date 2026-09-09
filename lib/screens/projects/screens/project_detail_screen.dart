@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:masrofy/core/utils/no_animation_route.dart';
+import 'package:planner/core/utils/no_animation_route.dart';
 
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -13,12 +13,18 @@ import '../../../core/services/pdf_service.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../models/project_task.dart';
 import '../widgets/project_dialog.dart';
+import '../widgets/project_members_sheet.dart';
 import '../widgets/voice_task_sheet.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final Project project;
+  final bool embedded;
 
-  const ProjectDetailScreen({super.key, required this.project});
+  const ProjectDetailScreen({
+    super.key,
+    required this.project,
+    this.embedded = false,
+  });
 
   @override
   State<ProjectDetailScreen> createState() => _ProjectDetailScreenState();
@@ -29,6 +35,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   final Set<String> _selectedTaskIds = {};
   String _selectedType = 'all';
   String _selectedPaymentStatus = 'all';
+  String _selectedMemberId = 'all';
 
   @override
   void initState() {
@@ -39,6 +46,21 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         listen: false,
       ).loadTasks(widget.project.id);
     });
+  }
+
+  @override
+  void didUpdateWidget(ProjectDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.project.id == widget.project.id) return;
+    _isSelectionMode = false;
+    _selectedTaskIds.clear();
+    _selectedType = 'all';
+    _selectedPaymentStatus = 'all';
+    _selectedMemberId = 'all';
+    Provider.of<ProjectProvider>(
+      context,
+      listen: false,
+    ).loadTasks(widget.project.id);
   }
 
   Future<void> _generatePdf(List<ProjectTask> tasks) async {
@@ -77,6 +99,61 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     );
   }
 
+  void _confirmArchive(BuildContext context, {Set<String>? ids}) {
+    final provider = Provider.of<ProjectProvider>(context, listen: false);
+    final eligible = provider
+        .getTasks(widget.project.id)
+        .where((t) => t.canArchive)
+        .where((t) => ids == null || ids.contains(t.id))
+        .length;
+
+    if (eligible == 0) {
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: Text('archiveTasks'.tr()),
+          content: Text('onlyCompletedPaidCanArchive'.tr()),
+          actions: [
+            CupertinoDialogAction(
+              child: Text('ok'.tr()),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text('archiveTasks'.tr()),
+        content: Text(
+          'archiveTasksConfirm'.tr(namedArgs: {'count': '$eligible'}),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: Text('cancel'.tr()),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            child: Text('archiveAction'.tr()),
+            onPressed: () {
+              provider.archiveTasks(widget.project.id, ids: ids);
+              Navigator.pop(context);
+              if (_isSelectionMode) {
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedTaskIds.clear();
+                });
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmDeleteProject(BuildContext context) {
     showCupertinoDialog(
       context: context,
@@ -97,7 +174,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 listen: false,
               ).deleteProject(widget.project.id);
               Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to previous screen
+              if (!widget.embedded && Navigator.of(context).canPop()) {
+                Navigator.pop(context);
+              }
             },
           ),
         ],
@@ -106,10 +185,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   Widget _buildFilterBar() {
+    final members = context.watch<ProjectProvider>().getMembers(
+      widget.project.id,
+    );
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemBackground,
+        color: CupertinoColors.systemBackground.resolveFrom(context),
         border: Border(
           bottom: BorderSide(
             color: CupertinoColors.separator.withValues(alpha: 0.1),
@@ -173,6 +255,29 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ],
             ),
           ),
+          if (members.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    label: 'allMembers'.tr(),
+                    isSelected: _selectedMemberId == 'all',
+                    onTap: () => setState(() => _selectedMemberId = 'all'),
+                  ),
+                  ...members.map(
+                    (m) => _buildFilterChip(
+                      label: m.name,
+                      isSelected: _selectedMemberId == m.id,
+                      onTap: () => setState(() => _selectedMemberId = m.id),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -220,12 +325,29 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!_isSelectionMode)
+                if (!_isSelectionMode) ...[
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(FontAwesomeIcons.userGroup, size: 18),
+                    onPressed: () =>
+                        ProjectMembersSheet.show(context, widget.project.id),
+                  ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     child: const FaIcon(FontAwesomeIcons.penToSquare, size: 20),
-                    onPressed: () => ProjectDialog.show(context, project: project),
+                    onPressed: () =>
+                        ProjectDialog.show(context, project: project),
                   ),
+                  if (provider.archivableCount(widget.project.id) > 0)
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      child: const FaIcon(
+                        FontAwesomeIcons.boxArchive,
+                        size: 18,
+                      ),
+                      onPressed: () => _confirmArchive(context),
+                    ),
+                ],
                 if (_isSelectionMode) ...[
                   CupertinoButton(
                     padding: EdgeInsets.zero,
@@ -317,6 +439,17 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                       }
                     },
                   ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: const FaIcon(FontAwesomeIcons.boxArchive, size: 18),
+                    onPressed: () {
+                      if (_selectedTaskIds.isEmpty) return;
+                      _confirmArchive(
+                        context,
+                        ids: Set<String>.from(_selectedTaskIds),
+                      );
+                    },
+                  ),
                 ],
                 CupertinoButton(
                   padding: EdgeInsets.zero,
@@ -342,11 +475,26 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               children: [
                 Column(
                   children: [
+                    if (project.customer != null &&
+                        project.customer!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text(
+                            project.customer!,
+                            style: const TextStyle(
+                              color: CupertinoColors.secondaryLabel,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
                     _buildFilterBar(),
                     Expanded(
                       child: Consumer<ProjectProvider>(
                         builder: (_, provider, child) {
-                          var tasks = provider.getTasks(widget.project.id);
+                          var tasks = provider.activeTasks(widget.project.id);
 
                           // Apply Filters
                           if (_selectedType != 'all') {
@@ -356,13 +504,20 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                           }
 
                           if (_selectedPaymentStatus != 'all') {
-                            final isPaidFilter = _selectedPaymentStatus == 'paid';
+                            final isPaidFilter =
+                                _selectedPaymentStatus == 'paid';
                             tasks = tasks
                                 .where((t) => t.isPaid == isPaidFilter)
                                 .toList();
-                          } else {
-                            // Default view: show everything NOT archived (i.e. Unpaid)
-                            tasks = tasks.where((t) => !t.isArchived).toList();
+                          }
+
+                          if (_selectedMemberId != 'all') {
+                            tasks = tasks
+                                .where(
+                                  (t) =>
+                                      t.assigneeIds.contains(_selectedMemberId),
+                                )
+                                .toList();
                           }
 
                           if (tasks.isEmpty) {
@@ -423,8 +578,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                                 Navigator.push(
                                   context,
                                   NoAnimationPageRoute(
-                                    builder: (_) =>
-                                        AddTaskScreen(projectId: widget.project.id),
+                                    builder: (_) => AddTaskScreen(
+                                      projectId: widget.project.id,
+                                    ),
                                   ),
                                 );
                               },
@@ -442,17 +598,25 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                               );
                             },
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)],
+                                  colors: [
+                                    Color(0xFF8B5CF6),
+                                    Color(0xFFEC4899),
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFEC4899).withValues(alpha: 0.25),
+                                    color: const Color(
+                                      0xFFEC4899,
+                                    ).withValues(alpha: 0.25),
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
                                   ),
@@ -461,7 +625,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(CupertinoIcons.mic_fill, color: CupertinoColors.white, size: 18),
+                                  const Icon(
+                                    CupertinoIcons.mic_fill,
+                                    color: CupertinoColors.white,
+                                    size: 18,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'voiceCreate'.tr(),
@@ -484,7 +652,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 if (!_isSelectionMode)
                   Consumer<ProjectProvider>(
                     builder: (context, provider, _) {
-                      final tasks = provider.getTasks(widget.project.id);
+                      final tasks = provider.activeTasks(widget.project.id);
                       if (tasks.isEmpty) return const SizedBox.shrink();
 
                       return Positioned(

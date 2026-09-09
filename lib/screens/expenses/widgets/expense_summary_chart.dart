@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:planner/providers/settings_provider.dart';
+import 'package:provider/provider.dart';
 import '../../../models/expense_category.dart';
 
 class ExpenseSummaryChart extends StatefulWidget {
@@ -8,6 +10,7 @@ class ExpenseSummaryChart extends StatefulWidget {
   final List<ExpenseCategory> categories;
   final double total;
   final String currency;
+  final bool animate;
 
   const ExpenseSummaryChart({
     super.key,
@@ -15,6 +18,7 @@ class ExpenseSummaryChart extends StatefulWidget {
     required this.categories,
     required this.total,
     this.currency = 'USD',
+    this.animate = true,
   });
 
   @override
@@ -33,7 +37,7 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    );
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
@@ -54,12 +58,8 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
   ExpenseCategory _categoryFor(String id) {
     return widget.categories.firstWhere(
       (c) => c.id == id,
-      orElse: () => ExpenseCategory(
-        id: id,
-        name: id,
-        color: 0xFF64748B,
-        icon: 0xe8b8,
-      ),
+      orElse: () =>
+          ExpenseCategory(id: id, name: id, color: 0xFF64748B, icon: 0xe8b8),
     );
   }
 
@@ -73,46 +73,48 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
     return Column(
       children: [
         // ── Donut Chart + Center Label ────────────────────────────────────
-        SizedBox(
-          height: 220,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Pie chart
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: PieChart(
-                  PieChartData(
-                    pieTouchData: PieTouchData(
-                      touchCallback: (event, response) {
-                        setState(() {
-                          if (!event.isInterestedForInteractions ||
+        _maybeAnimate(
+          SizedBox(
+            height: 220,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: PieChart(
+                    PieChartData(
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          final none =
+                              !event.isInterestedForInteractions ||
                               response == null ||
-                              response.touchedSection == null) {
-                            _touchedIndex = -1;
-                            return;
+                              response.touchedSection == null;
+                          final index = none
+                              ? -1
+                              : response.touchedSection!.touchedSectionIndex;
+                          if (index == _touchedIndex) return;
+                          setState(() => _touchedIndex = index);
+                          if (widget.animate && index >= 0) {
+                            if (!_pulseController.isAnimating) {
+                              _pulseController.repeat(reverse: true);
+                            }
+                          } else {
+                            _pulseController.stop();
                           }
-                          _touchedIndex =
-                              response.touchedSection!.touchedSectionIndex;
-                        });
-                      },
+                        },
+                      ),
+                      sections: _buildSections(sortedEntries),
+                      centerSpaceRadius: 72,
+                      sectionsSpace: 3,
+                      startDegreeOffset: -90,
                     ),
-                    sections: _buildSections(sortedEntries),
-                    centerSpaceRadius: 72,
-                    sectionsSpace: 3,
-                    startDegreeOffset: -90,
                   ),
                 ),
-              ),
-
-              // Center label
-              _buildCenterLabel(sortedEntries, isDark),
-            ],
+                _buildCenterLabel(sortedEntries, isDark),
+              ],
+            ),
           ),
-        )
-            .animate()
-            .fadeIn(duration: 500.ms)
-            .scale(begin: const Offset(0.85, 0.85), end: const Offset(1, 1)),
+        ),
 
         const SizedBox(height: 20),
 
@@ -125,7 +127,8 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
   // ── Sections ───────────────────────────────────────────────────────────────
 
   List<PieChartSectionData> _buildSections(
-      List<MapEntry<String, double>> entries) {
+    List<MapEntry<String, double>> entries,
+  ) {
     return List.generate(entries.length, (i) {
       final entry = entries[i];
       final cat = _categoryFor(entry.key);
@@ -166,10 +169,7 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
           decoration: BoxDecoration(
             color: Color(color),
             shape: BoxShape.circle,
-            border: Border.all(
-              color: CupertinoColors.white,
-              width: 2,
-            ),
+            border: Border.all(color: CupertinoColors.white, width: 2),
             boxShadow: [
               BoxShadow(
                 color: Color(color).withValues(alpha: 0.6),
@@ -186,8 +186,11 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
   // ── Center Label ───────────────────────────────────────────────────────────
 
   Widget _buildCenterLabel(
-      List<MapEntry<String, double>> entries, bool isDark) {
-    final bool hasTouched = _touchedIndex >= 0 && _touchedIndex < entries.length;
+    List<MapEntry<String, double>> entries,
+    bool isDark,
+  ) {
+    final bool hasTouched =
+        _touchedIndex >= 0 && _touchedIndex < entries.length;
     final entry = hasTouched ? entries[_touchedIndex] : null;
     final cat = entry != null ? _categoryFor(entry.key) : null;
     final pct = (entry != null && widget.total > 0)
@@ -234,7 +237,10 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${widget.currency} ${entry!.value.toStringAsFixed(2)}',
+                  context.watch<SettingsProvider>().formatMoney(
+                    entry!.value,
+                    widget.currency,
+                  ),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -265,7 +271,9 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.currency,
+                  context.watch<SettingsProvider>().hideAmounts
+                      ? ''
+                      : widget.currency,
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark
@@ -274,7 +282,10 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                   ),
                 ),
                 Text(
-                  widget.total.toStringAsFixed(2),
+                  context.watch<SettingsProvider>().formatMoney(
+                    widget.total,
+                    widget.currency,
+                  ),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -303,16 +314,12 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
       children: List.generate(entries.length, (i) {
         final entry = entries[i];
         final cat = _categoryFor(entry.key);
-        final pct =
-            widget.total > 0 ? (entry.value / widget.total * 100) : 0.0;
+        final pct = widget.total > 0 ? (entry.value / widget.total * 100) : 0.0;
         final isSelected = i == _touchedIndex;
-        final barWidth =
-            widget.total > 0 ? (entry.value / widget.total) : 0.0;
+        final barWidth = widget.total > 0 ? (entry.value / widget.total) : 0.0;
 
-        return GestureDetector(
-          onTap: () => setState(
-            () => _touchedIndex = isSelected ? -1 : i,
-          ),
+        final row = GestureDetector(
+          onTap: () => setState(() => _touchedIndex = isSelected ? -1 : i),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             margin: const EdgeInsets.only(bottom: 8),
@@ -321,15 +328,17 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
               color: isSelected
                   ? Color(cat.color).withValues(alpha: 0.08)
                   : (isDark
-                      ? const Color(0xFF2C2C2E)
-                      : CupertinoColors.systemBackground.resolveFrom(context)),
+                        ? const Color(0xFF2C2C2E)
+                        : CupertinoColors.systemBackground.resolveFrom(
+                            context,
+                          )),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isSelected
                     ? Color(cat.color).withValues(alpha: 0.4)
                     : (isDark
-                        ? const Color(0xFF3A3A3C)
-                        : const Color(0xFFE2E8F0)),
+                          ? const Color(0xFF3A3A3C)
+                          : const Color(0xFFE2E8F0)),
                 width: isSelected ? 1.5 : 0.8,
               ),
             ),
@@ -337,7 +346,6 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
               children: [
                 Row(
                   children: [
-                    // Color dot with icon
                     Container(
                       width: 34,
                       height: 34,
@@ -357,7 +365,6 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // Name & bar
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +387,12 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                               Row(
                                 children: [
                                   Text(
-                                    '${widget.currency} ${entry.value.toStringAsFixed(2)}',
+                                    context
+                                        .watch<SettingsProvider>()
+                                        .formatMoney(
+                                          entry.value,
+                                          widget.currency,
+                                        ),
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -388,15 +400,15 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  // Percentage badge
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Color(cat.color)
-                                          .withValues(alpha: 0.15),
+                                      color: Color(
+                                        cat.color,
+                                      ).withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
@@ -413,15 +425,15 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                             ],
                           ),
                           const SizedBox(height: 6),
-                          // Progress bar
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: Stack(
                               children: [
                                 Container(
                                   height: 4,
-                                  color: Color(cat.color)
-                                      .withValues(alpha: 0.12),
+                                  color: Color(
+                                    cat.color,
+                                  ).withValues(alpha: 0.12),
                                 ),
                                 AnimatedFractionallySizedBox(
                                   duration: const Duration(milliseconds: 600),
@@ -432,8 +444,9 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: [
-                                          Color(cat.color)
-                                              .withValues(alpha: 0.7),
+                                          Color(
+                                            cat.color,
+                                          ).withValues(alpha: 0.7),
                                           Color(cat.color),
                                         ],
                                       ),
@@ -450,12 +463,22 @@ class _ExpenseSummaryChartState extends State<ExpenseSummaryChart>
                 ),
               ],
             ),
-          )
-              .animate(delay: Duration(milliseconds: i * 60))
-              .fadeIn(duration: 300.ms)
-              .slideX(begin: 0.06, end: 0),
+          ),
         );
+        if (!widget.animate) return row;
+        return row
+            .animate(delay: Duration(milliseconds: i * 60))
+            .fadeIn(duration: 300.ms)
+            .slideX(begin: 0.06, end: 0);
       }),
     );
+  }
+
+  Widget _maybeAnimate(Widget child) {
+    if (!widget.animate) return child;
+    return child
+        .animate()
+        .fadeIn(duration: 500.ms)
+        .scale(begin: const Offset(0.85, 0.85), end: const Offset(1, 1));
   }
 }
