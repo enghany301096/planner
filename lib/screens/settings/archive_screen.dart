@@ -23,6 +23,7 @@ class TaskArchiveScreen extends StatelessWidget {
     final pdf = PdfService();
     final name = 'Archive_${project.name}';
     if (share) {
+      final box = context.findRenderObject() as RenderBox?;
       await pdf.shareProjectInvoice(
         project,
         tasks,
@@ -33,6 +34,9 @@ class TaskArchiveScreen extends StatelessWidget {
         showTaskTime: settings.showTaskTimeInPrint,
         showSubtasks: settings.showSubtasksInPrint,
         documentName: name,
+        sharePositionOrigin: box == null
+            ? null
+            : box.localToGlobal(Offset.zero) & box.size,
       );
     } else {
       await pdf.printProjectInvoice(

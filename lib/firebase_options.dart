@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     storageBucket: 'masrofy-app.firebasestorage.app',
-    iosBundleId: 'com.hany.smartplanner',
+    iosBundleId: 'com.litesystems.smartplanner',
   );
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBYXWLmBzdCM-jXpl3wF9TgOpauW5ge48k',
@@ -71,7 +71,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '347456717704',
     projectId: 'masrofy-app',
     storageBucket: 'masrofy-app.firebasestorage.app',
-    iosBundleId: 'com.hany.smartplanner',
+    iosBundleId: 'com.litesystems.smartplanner',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

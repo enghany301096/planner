@@ -59,10 +59,10 @@ class NotificationService {
     required String taskId,
     required String title,
     required String body,
-    required DateTime dueDate,
+    required DateTime startDate,
   }) async {
     await cancelTaskReminder(taskId);
-    final when = DateTime(dueDate.year, dueDate.month, dueDate.day, 9);
+    final when = startDate.add(const Duration(hours: 1));
     if (!when.isAfter(DateTime.now())) return;
 
     await _notificationsPlugin.zonedSchedule(

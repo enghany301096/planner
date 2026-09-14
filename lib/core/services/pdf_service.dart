@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show Locale;
 import 'package:pdf/pdf.dart';
@@ -7,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
+
 import '../../models/project.dart';
 import '../../models/project_task.dart';
 
@@ -41,7 +43,7 @@ class PdfService {
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: documentName ?? 'Invoice_${project.name}',
+      name: _safeFileName(documentName ?? 'Invoice_${project.name}'),
     );
   }
 
@@ -55,6 +57,7 @@ class PdfService {
     bool showTaskTime = true,
     bool showSubtasks = true,
     String? documentName,
+    Rect? sharePositionOrigin,
   }) async {
     final pdf = await _generateProjectPdf(
       project,
@@ -68,17 +71,30 @@ class PdfService {
     );
 
     final output = await getTemporaryDirectory();
-    final prefix = documentName ?? 'Invoice_${project.name}';
+    final prefix = _safeFileName(documentName ?? 'Invoice_${project.name}');
     final fileName = "${prefix}_${DateTime.now().millisecondsSinceEpoch}.pdf";
     final file = File("${output.path}/$fileName");
-    await file.writeAsBytes(await pdf.save());
+    await _writePdf(file, await pdf.save());
 
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path)],
         text: 'invoiceShareText'.tr(namedArgs: {'name': project.name}),
+        sharePositionOrigin: sharePositionOrigin,
       ),
     );
+  }
+
+  String _safeFileName(String value) {
+    final cleaned = value.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    return cleaned.isEmpty
+        ? 'invoice'
+        : cleaned.substring(0, math.min(cleaned.length, 80));
+  }
+
+  Future<void> _writePdf(File file, List<int> bytes) async {
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(bytes, flush: true);
   }
 
   Future<pw.Document> _generateProjectPdf(
@@ -850,7 +866,7 @@ class PdfService {
     );
 
     final file = File(filePath);
-    await file.writeAsBytes(await pdf.save());
+    await _writePdf(file, await pdf.save());
     return file;
   }
 

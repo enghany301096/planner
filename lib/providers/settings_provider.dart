@@ -19,6 +19,7 @@ class SettingsProvider with ChangeNotifier {
   bool _showTaskTypeInPrint = true;
   bool _showSubtasksInPrint = true;
   bool _isExpensesEnabled = true;
+  bool _isTodosEnabled = true;
   double _usdToEgp = 48.50;
   double _usdToSar = 3.75;
   String _lastRatesUpdate = '';
@@ -44,6 +45,7 @@ class SettingsProvider with ChangeNotifier {
   bool get showTaskTypeInPrint => _showTaskTypeInPrint;
   bool get showSubtasksInPrint => _showSubtasksInPrint;
   bool get isExpensesEnabled => _isExpensesEnabled;
+  bool get isTodosEnabled => _isTodosEnabled;
   double get usdToEgp => _usdToEgp;
   double get usdToSar => _usdToSar;
   String get lastRatesUpdate => _lastRatesUpdate;
@@ -75,6 +77,7 @@ class SettingsProvider with ChangeNotifier {
     _showTaskTypeInPrint = prefs.getBool('showTaskTypeInPrint') ?? true;
     _showSubtasksInPrint = prefs.getBool('showSubtasksInPrint') ?? true;
     _isExpensesEnabled = prefs.getBool('isExpensesEnabled') ?? true;
+    _isTodosEnabled = prefs.getBool('isTodosEnabled') ?? true;
     _usdToEgp = prefs.getDouble('usdToEgp') ?? 48.50;
     _usdToSar = prefs.getDouble('usdToSar') ?? 3.75;
     _lastRatesUpdate = prefs.getString('lastRatesUpdate') ?? '';
@@ -215,6 +218,13 @@ class SettingsProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isExpensesEnabled = value;
     await prefs.setBool('isExpensesEnabled', value);
+    notifyListeners();
+  }
+
+  Future<void> setTodosEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _isTodosEnabled = value;
+    await prefs.setBool('isTodosEnabled', value);
     notifyListeners();
   }
 

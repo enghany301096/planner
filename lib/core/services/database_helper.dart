@@ -10,12 +10,14 @@ import 'package:planner/models/project_member.dart';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+
 import '../../models/project.dart';
 import '../../models/project_task.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static Future<Database>? _databaseOpening;
   static const dbFileName = 'planner.db';
   static const legacyDbFileName = 'masrofy.db';
 
@@ -23,7 +25,9 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB();
+    _databaseOpening ??= _initDB();
+    _database = await _databaseOpening!;
+    _databaseOpening = null;
     return _database!;
   }
 
@@ -516,10 +520,12 @@ CREATE TABLE tasks (
   }
 
   Future<void> close() async {
+    await _databaseOpening;
     if (_database != null) {
       await _database!.close();
       _database = null;
     }
+    _databaseOpening = null;
   }
 
   Future<void> resetDatabase() async {

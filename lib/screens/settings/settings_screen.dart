@@ -441,6 +441,21 @@ class _SettingsList extends StatelessWidget {
                     },
                   ),
                 ),
+                CupertinoListTile(
+                  leading: const FaIcon(
+                    FontAwesomeIcons.listCheck,
+                    color: CupertinoColors.systemIndigo,
+                    size: 20,
+                  ),
+                  title: Text('todoModule'.tr()),
+                  subtitle: Text('todoModuleSubtitle'.tr()),
+                  trailing: CupertinoSwitch(
+                    value: settings.isTodosEnabled,
+                    onChanged: (value) {
+                      settings.setTodosEnabled(value);
+                    },
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),

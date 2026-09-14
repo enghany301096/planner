@@ -16,9 +16,10 @@ import 'package:planner/screens/income/income_screen.dart';
 import 'package:planner/screens/projects/screens/projects_screen.dart';
 import 'package:planner/screens/projects/widgets/project_dialog.dart';
 import 'package:planner/screens/settings/settings_screen.dart';
+import 'package:planner/screens/todos/todos_screen.dart';
 import 'package:provider/provider.dart';
 
-enum AppSection { home, projects, income, expenses, settings }
+enum AppSection { home, projects, todos, income, expenses, settings }
 
 class AppShellScope extends InheritedWidget {
   const AppShellScope({
@@ -81,6 +82,7 @@ class _AppShellState extends State<AppShell> {
     return [
       AppSection.home,
       AppSection.projects,
+      if (settings.isTodosEnabled) AppSection.todos,
       AppSection.income,
       if (settings.isExpensesEnabled) AppSection.expenses,
       AppSection.settings,
@@ -99,6 +101,9 @@ class _AppShellState extends State<AppShell> {
     if (section == AppSection.expenses && !settings.isExpensesEnabled) {
       section = AppSection.home;
     }
+    if (section == AppSection.todos && !settings.isTodosEnabled) {
+      section = AppSection.home;
+    }
     setState(() {
       _section = section;
       _drawerOpen = false;
@@ -113,6 +118,8 @@ class _AppShellState extends State<AppShell> {
       case AppSection.home:
       case AppSection.projects:
         ProjectDialog.show(context);
+      case AppSection.todos:
+        break;
       case AppSection.income:
         Navigator.of(
           context,
@@ -154,21 +161,27 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
-    final flags = context.select<SettingsProvider, (bool, bool, bool, bool)>(
+    final flags = context.select<SettingsProvider, (bool, bool, bool, bool, bool)>(
       (s) => (
         s.isExpensesEnabled,
+        s.isTodosEnabled,
         s.compactSidebar,
         s.keyboardShortcuts,
         s.areSettingsLoaded,
       ),
     );
     final showExpenses = flags.$1;
-    final compactSidebar = flags.$2;
-    final keyboardShortcuts = flags.$3;
+    final showTodos = flags.$2;
+    final compactSidebar = flags.$3;
+    final keyboardShortcuts = flags.$4;
     final sections = _visibleSections(context.read<SettingsProvider>());
-    final current = _section == AppSection.expenses && !showExpenses
-        ? AppSection.home
-        : _section;
+    var current = _section;
+    if (current == AppSection.expenses && !showExpenses) {
+      current = AppSection.home;
+    }
+    if (current == AppSection.todos && !showTodos) {
+      current = AppSection.home;
+    }
     final scope = AppShellScope(
       section: current,
       embedded: layout.hasSidebar,
@@ -178,6 +191,7 @@ class _AppShellState extends State<AppShell> {
               section: current,
               compactSidebar: compactSidebar,
               showExpenses: showExpenses,
+              showTodos: showTodos,
               expanded: layout.isExpanded,
             )
           : _buildCompact(),
@@ -211,29 +225,41 @@ class _AppShellState extends State<AppShell> {
     required AppSection section,
     required bool compactSidebar,
     required bool showExpenses,
+    required bool showTodos,
     required bool expanded,
   }) {
-    return Row(
-      children: [
-        RepaintBoundary(
-          child: _Sidebar(
-            section: section,
-            compact: compactSidebar,
-            showExpenses: showExpenses,
-            onSelect: _goTo,
+    return ColoredBox(
+      color: AppColors.surfaceAlt,
+      child: Row(
+        children: [
+          RepaintBoundary(
+            child: _Sidebar(
+              section: section,
+              compact: compactSidebar,
+              showExpenses: showExpenses,
+              showTodos: showTodos,
+              onSelect: _goTo,
+            ),
           ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ClipRect(
-              child: KeyedSubtree(
-                key: ValueKey(section),
-                child: _pageFor(section, expanded),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(expanded ? 16 : 0),
+              child: RepaintBoundary(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(expanded ? 18 : 0),
+                  child: ColoredBox(
+                    color: AppColors.cardBackground(context),
+                    child: KeyedSubtree(
+                      key: ValueKey(section),
+                      child: _pageFor(section, expanded),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -243,6 +269,8 @@ class _AppShellState extends State<AppShell> {
         return const HomeScreen();
       case AppSection.projects:
         return ProjectsScreen(embedded: expanded);
+      case AppSection.todos:
+        return const TodosScreen();
       case AppSection.income:
         return const IncomeScreen();
       case AppSection.expenses:
@@ -292,6 +320,22 @@ class _AppShellState extends State<AppShell> {
                       );
                     },
                   ),
+                  Consumer<SettingsProvider>(
+                    builder: (_, settings, _) => settings.isTodosEnabled
+                        ? _drawerItem(
+                            icon: FontAwesomeIcons.listCheck,
+                            title: 'todos'.tr(),
+                            onTap: () {
+                              _toggleDrawer();
+                              Navigator.of(context).push(
+                                NoAnimationPageRoute(
+                                  builder: (_) => const TodosScreen(),
+                                ),
+                              );
+                            },
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   _drawerItem(
                     icon: FontAwesomeIcons.moneyBillTrendUp,
                     title: 'income'.tr(),
@@ -339,9 +383,8 @@ class _AppShellState extends State<AppShell> {
                       'v 1.0.0',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.secondaryLabel(
-                          context,
-                        ).withValues(alpha: 0.6),
+                        color: AppColors.secondaryLabel(context)
+                            .withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -411,12 +454,14 @@ class _Sidebar extends StatelessWidget {
     required this.section,
     required this.compact,
     required this.showExpenses,
+    required this.showTodos,
     required this.onSelect,
   });
 
   final AppSection section;
   final bool compact;
   final bool showExpenses;
+  final bool showTodos;
   final ValueChanged<AppSection> onSelect;
 
   @override
@@ -424,6 +469,8 @@ class _Sidebar extends StatelessWidget {
     final items = <(AppSection, FaIconData, String)>[
       (AppSection.home, FontAwesomeIcons.house, 'home'.tr()),
       (AppSection.projects, FontAwesomeIcons.briefcase, 'projects'.tr()),
+      if (showTodos)
+        (AppSection.todos, FontAwesomeIcons.listCheck, 'todos'.tr()),
       (AppSection.income, FontAwesomeIcons.moneyBillTrendUp, 'income'.tr()),
       if (showExpenses)
         (AppSection.expenses, FontAwesomeIcons.receipt, 'expenses'.tr()),
@@ -519,9 +566,8 @@ class _SidebarItem extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: selected
-                ? CupertinoTheme.of(
-                    context,
-                  ).primaryColor.withValues(alpha: 0.12)
+                ? CupertinoTheme.of(context).primaryColor
+                      .withValues(alpha: 0.12)
                 : null,
             borderRadius: BorderRadius.circular(12),
           ),

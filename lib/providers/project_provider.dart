@@ -274,7 +274,7 @@ class ProjectProvider with ChangeNotifier {
   }
 
   Future<void> _syncTaskReminder(ProjectTask task) async {
-    if (task.endDate == null || task.isCompleted || task.status == 'done') {
+    if (task.isCompleted || task.status == 'done' || task.isArchived) {
       await NotificationService().cancelTaskReminder(task.id);
       return;
     }
@@ -282,7 +282,7 @@ class ProjectProvider with ChangeNotifier {
       taskId: task.id,
       title: 'taskDueReminderTitle'.tr(),
       body: 'taskDueReminderBody'.tr(namedArgs: {'name': task.name}),
-      dueDate: task.endDate!,
+      startDate: task.startDate,
     );
   }
 

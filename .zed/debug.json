@@ -1,0 +1,16 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+     "label": "Open in Android Studio",
+     // "command": "open",
+     "args": ["-a", "Android Studio", "$ZED_FILE_DIR"]
+   },
+   {
+     "label": "Open in Xcode",
+     // "command": "open",
+     "args": ["-a", "Xcode", "$ZED_FILE_DIR"]
+   }
+]

@@ -4,6 +4,7 @@ import 'package:planner/core/utils/no_animation_route.dart';
 import 'package:provider/provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 import '../../../providers/project_provider.dart';
 import '../../../models/project.dart';
 
@@ -81,7 +82,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     );
   }
 
-  Future<void> _sharePdf(List<ProjectTask> tasks) async {
+  Future<void> _sharePdf(
+    List<ProjectTask> tasks, {
+    Rect? sharePositionOrigin,
+  }) async {
     final pdfService = PdfService();
     final settingsProvider = Provider.of<SettingsProvider>(
       context,
@@ -96,6 +100,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       showTaskType: settingsProvider.showTaskTypeInPrint,
       showTaskTime: settingsProvider.showTaskTimeInPrint,
       showSubtasks: settingsProvider.showSubtasksInPrint,
+      sharePositionOrigin: sharePositionOrigin,
     );
   }
 
@@ -409,7 +414,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                           .where((t) => _selectedTaskIds.contains(t.id))
                           .toList();
                       if (selectedTasks.isNotEmpty) {
-                        _sharePdf(selectedTasks);
+                        _sharePdf(
+                          selectedTasks,
+                          sharePositionOrigin: _shareOrigin(context),
+                        );
                         setState(() {
                           _isSelectionMode = false;
                           _selectedTaskIds.clear();
@@ -614,9 +622,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(
-                                      0xFFEC4899,
-                                    ).withValues(alpha: 0.25),
+                                    color: const Color(0xFFEC4899)
+                                        .withValues(alpha: 0.25),
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
                                   ),
@@ -663,7 +670,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                           children: [
                             CupertinoButton(
                               padding: EdgeInsets.zero,
-                              onPressed: () => _sharePdf(tasks),
+                              onPressed: () => _sharePdf(
+                                tasks,
+                                sharePositionOrigin: _shareOrigin(context),
+                              ),
                               child: Container(
                                 width: 50,
                                 height: 50,
@@ -713,5 +723,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         );
       },
     );
+  }
+
+  Rect? _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 }
