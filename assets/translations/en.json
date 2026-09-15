@@ -313,4 +313,10 @@
     "keyboardShortcuts": "Keyboard shortcuts",
     "keyboardShortcutsSubtitle": "⌘/Ctrl+1–5 switch sections, ⌘/Ctrl+N new item, Esc closes menu",
     "selectProject": "Select a project"
+    ,"searchProjects": "Search projects"
+    ,"allProjects": "All projects"
+    ,"active": "Active"
+    ,"sortBy": "Sort by"
+    ,"clearFilters": "Clear filters"
+    ,"filterProjects": "Filters"
 }

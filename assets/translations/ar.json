@@ -312,4 +312,10 @@
     "keyboardShortcuts": "اختصارات لوحة المفاتيح",
     "keyboardShortcutsSubtitle": "⌘/Ctrl+1–5 لتغيير الأقسام، ⌘/Ctrl+N لإضافة عنصر، Esc لإغلاق القائمة",
     "selectProject": "اختر مشروعاً"
+    ,"searchProjects": "البحث في المشاريع"
+    ,"allProjects": "كل المشاريع"
+    ,"active": "نشط"
+    ,"sortBy": "ترتيب حسب"
+    ,"clearFilters": "مسح عوامل التصفية"
+    ,"filterProjects": "التصفية"
 }
