@@ -205,76 +205,75 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Widget _filterPanel(BuildContext context) {
-    return AnimatedCrossFade(
+    return AnimatedSize(
       duration: const Duration(milliseconds: 180),
-      crossFadeState: _filtersExpanded
-          ? CrossFadeState.showFirst
-          : CrossFadeState.showSecond,
-      firstChild: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.elevatedBackground(context),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.separator(context)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            CupertinoSearchTextField(
-              placeholder: 'searchProjects'.tr(),
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-            ),
-            const SizedBox(height: 12),
-            CupertinoSlidingSegmentedControl<String>(
-              groupValue: _statusFilter,
-              children: {
-                'all': Text('allProjects'.tr()),
-                'active': Text('active'.tr()),
-                'archived': Text('archived'.tr()),
-              },
-              onValueChanged: (value) {
-                if (value != null) setState(() => _statusFilter = value);
-              },
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'sortBy'.tr(),
-                    style: TextStyle(
-                      color: AppColors.secondaryLabel(context),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                CupertinoSlidingSegmentedControl<String>(
-                  groupValue: _sortOrder,
-                  children: {
-                    'name': Text('nameLabel'.tr()),
-                    'date': Text('endDate'.tr()),
-                  },
-                  onValueChanged: (value) {
-                    if (value != null) setState(() => _sortOrder = value);
-                  },
-                ),
-              ],
-            ),
-            if (_hasFilters)
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: CupertinoButton(
-                  padding: const EdgeInsets.only(top: 8),
-                  onPressed: _clearFilters,
-                  child: Text('clearFilters'.tr()),
-                ),
+      alignment: Alignment.topCenter,
+      child: _filtersExpanded
+          ? Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.elevatedBackground(context),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.separator(context)),
               ),
-          ],
-        ),
-      ),
-      secondChild: const SizedBox.shrink(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CupertinoSearchTextField(
+                    placeholder: 'searchProjects'.tr(),
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                  ),
+                  const SizedBox(height: 12),
+                  CupertinoSlidingSegmentedControl<String>(
+                    groupValue: _statusFilter,
+                    children: {
+                      'all': Text('allProjects'.tr()),
+                      'active': Text('active'.tr()),
+                      'archived': Text('archived'.tr()),
+                    },
+                    onValueChanged: (value) {
+                      if (value != null) setState(() => _statusFilter = value);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'sortBy'.tr(),
+                          style: TextStyle(
+                            color: AppColors.secondaryLabel(context),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      CupertinoSlidingSegmentedControl<String>(
+                        groupValue: _sortOrder,
+                        children: {
+                          'name': Text('nameLabel'.tr()),
+                          'date': Text('endDate'.tr()),
+                        },
+                        onValueChanged: (value) {
+                          if (value != null) setState(() => _sortOrder = value);
+                        },
+                      ),
+                    ],
+                  ),
+                  if (_hasFilters)
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: CupertinoButton(
+                        padding: const EdgeInsets.only(top: 8),
+                        onPressed: _clearFilters,
+                        child: Text('clearFilters'.tr()),
+                      ),
+                    ),
+                ],
+              ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 

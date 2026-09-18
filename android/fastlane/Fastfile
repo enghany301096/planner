@@ -25,4 +25,16 @@ platform :android do
     )
     UI.success("Deployment to Google Play Internal Testing completed! 🚀")
   end
+  
+  desc "Upload AAB to Google Play Internal Testing Track"
+  lane :upload_to_play_store do
+    UI.message("Uploading to Google Play Internal Testing Track ✨")
+    upload_to_play_store(
+      track: "internal",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      json_key: "../android/app/google-services.json"
+      # json_key: "play-account.json"
+    )
+    UI.success("Deployment to Google Play Internal Testing completed! 🚀")
+  end
 end

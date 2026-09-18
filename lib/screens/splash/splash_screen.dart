@@ -48,6 +48,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final logoSize = (MediaQuery.sizeOf(context).shortestSide * 0.22)
+        .clamp(84.0, 104.0)
+        .toDouble();
+
     return CupertinoPageScaffold(
       backgroundColor: Colors.white,
       child: Container(
@@ -107,9 +111,9 @@ class _SplashScreenState extends State<SplashScreen> {
                 children: [
                   // Animated Logo
                   Container(
-                        width: 120,
-                        height: 120,
-                        padding: const EdgeInsets.all(20),
+                        width: logoSize,
+                        height: logoSize,
+                        padding: EdgeInsets.all(logoSize * 0.16),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,

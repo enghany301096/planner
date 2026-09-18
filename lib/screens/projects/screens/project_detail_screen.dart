@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:planner/core/utils/app_colors.dart';
 import 'package:planner/core/utils/no_animation_route.dart';
 
 import 'package:provider/provider.dart';
@@ -37,6 +38,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   String _selectedType = 'all';
   String _selectedPaymentStatus = 'all';
   String _selectedMemberId = 'all';
+  bool _filtersExpanded = false;
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     _selectedType = 'all';
     _selectedPaymentStatus = 'all';
     _selectedMemberId = 'all';
+    _filtersExpanded = false;
     Provider.of<ProjectProvider>(
       context,
       listen: false,
@@ -189,20 +192,95 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildFilterBar() {
+  bool get _hasFilters =>
+      _selectedType != 'all' ||
+      _selectedPaymentStatus != 'all' ||
+      _selectedMemberId != 'all';
+
+  int get _activeFilterCount =>
+      (_selectedType != 'all' ? 1 : 0) +
+      (_selectedPaymentStatus != 'all' ? 1 : 0) +
+      (_selectedMemberId != 'all' ? 1 : 0);
+
+  void _clearFilters() {
+    setState(() {
+      _selectedType = 'all';
+      _selectedPaymentStatus = 'all';
+      _selectedMemberId = 'all';
+    });
+  }
+
+  Widget _buildFilters() {
+    return Column(
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 4),
+            child: CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              onPressed: () =>
+                  setState(() => _filtersExpanded = !_filtersExpanded),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FaIcon(
+                    _filtersExpanded
+                        ? FontAwesomeIcons.chevronUp
+                        : FontAwesomeIcons.sliders,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 6),
+                  Text('filterProjects'.tr()),
+                  if (_hasFilters) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _activeFilterCount.toString(),
+                        style: const TextStyle(
+                          color: CupertinoColors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 180),
+          crossFadeState: _filtersExpanded
+              ? CrossFadeState.showFirst
+              : CrossFadeState.showSecond,
+          firstChild: _buildFilterPanel(),
+          secondChild: const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterPanel() {
     final members = context.watch<ProjectProvider>().getMembers(
       widget.project.id,
     );
     return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemBackground.resolveFrom(context),
-        border: Border(
-          bottom: BorderSide(
-            color: CupertinoColors.separator.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
-        ),
+        color: AppColors.elevatedBackground(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.separator(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,6 +361,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ),
             ),
           ],
+          if (_hasFilters)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: CupertinoButton(
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
+                onPressed: _clearFilters,
+                child: Text('clearFilters'.tr()),
+              ),
+            ),
         ],
       ),
     );
@@ -498,7 +585,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                           ),
                         ),
                       ),
-                    _buildFilterBar(),
+                    _buildFilters(),
                     Expanded(
                       child: Consumer<ProjectProvider>(
                         builder: (_, provider, child) {
